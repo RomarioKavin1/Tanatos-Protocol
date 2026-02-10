@@ -1,0 +1,50 @@
+# Node / Bun
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+.env.*.local
+
+# Cairo / Scarb
+target/
+.scarb/
+
+# Noir / Nargo
+circuits/*/target/
+circuits/*/Prover.toml
+circuits/*/Verifier.toml
+*.acvm
+
+# Keys & secrets
+*.key
+*.pem
+*.p12
+keystore/
+accounts/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun.lockb
+
+# Testing
+coverage/
+.nyc_output/
+
+# Deployment artifacts
+deployments/
+broadcast/
