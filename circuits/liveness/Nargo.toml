@@ -1,0 +1,7 @@
+[package]
+name = "liveness"
+type = "bin"
+authors = ["Thanatos Protocol"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
