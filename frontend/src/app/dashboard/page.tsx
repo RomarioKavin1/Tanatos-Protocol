@@ -27,6 +27,7 @@ import {
   getMissedCount,
   isVaultActivated,
   getGroupRoot,
+  getCheckinInterval,
 } from "@/lib/contracts";
 import { formatTimeRemaining } from "@/lib/starknet";
 
@@ -48,7 +49,7 @@ export default function DashboardPage() {
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [intervalSeconds] = useState(DEFAULT_INTERVAL);
+  const [intervalSeconds, setIntervalSeconds] = useState(DEFAULT_INTERVAL);
   const [timeNow, setTimeNow] = useState(Date.now());
 
   // Live clock
@@ -68,15 +69,23 @@ export default function DashboardPage() {
     setIsLoading(true);
 
     try {
+      // First try to get the actual interval from contract
       const epoch = getCurrentEpoch(intervalSeconds);
       const nullifierHash = await computeNullifierHash(identity.nullifier, epoch);
 
-      const [lastCheckin, missedCount, activated, rootRaw] = await Promise.allSettled([
-        getLastCheckin(provider, nullifierHash),
-        getMissedCount(provider, nullifierHash),
-        isVaultActivated(provider, identity.commitment),
-        getGroupRoot(provider),
-      ]);
+      const [lastCheckin, missedCount, activated, rootRaw, intervalResult] =
+        await Promise.allSettled([
+          getLastCheckin(provider, nullifierHash),
+          getMissedCount(provider, nullifierHash),
+          isVaultActivated(provider, identity.commitment),
+          getGroupRoot(provider),
+          getCheckinInterval(provider, nullifierHash),
+        ]);
+
+      // Update interval from chain if available
+      if (intervalResult.status === "fulfilled" && intervalResult.value > 0) {
+        setIntervalSeconds(intervalResult.value);
+      }
 
       setStatus({
         lastCheckin: lastCheckin.status === "fulfilled" ? lastCheckin.value : 0,

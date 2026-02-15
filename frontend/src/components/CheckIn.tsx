@@ -18,11 +18,13 @@ import {
   getLastCheckin,
   getMissedCount,
   getGroupRoot,
+  getMemberCount,
+  getLeaf,
+  getCheckinInterval,
 } from "@/lib/contracts";
 import { formatTimeRemaining } from "@/lib/starknet";
 import type { Account } from "starknet";
 
-// Default 30-day interval — in a real app this would be read from on-chain state
 const DEFAULT_INTERVAL_SECONDS = 30 * 24 * 3600;
 
 type ProofStep =
@@ -71,15 +73,18 @@ export function CheckIn() {
       try {
         const epoch = getCurrentEpoch(intervalSeconds);
         const nullifierHash = await computeNullifierHash(identity.nullifier, epoch);
-        const [last, missed] = await Promise.all([
+        const [last, missed, interval] = await Promise.all([
           getLastCheckin(provider, nullifierHash),
           getMissedCount(provider, nullifierHash),
+          getCheckinInterval(provider, nullifierHash).catch(() => 0),
         ]);
         setLastCheckin(last);
         setMissedCount(missed);
-        setDeadline(getEpochDeadline(intervalSeconds));
+        if (interval > 0) {
+          setIntervalSeconds(interval);
+        }
+        setDeadline(getEpochDeadline(interval > 0 ? interval : intervalSeconds));
       } catch {
-        // Contract not deployed or not registered yet — use local estimate
         setDeadline(getEpochDeadline(intervalSeconds));
       }
     };
@@ -100,28 +105,57 @@ export function CheckIn() {
 
     try {
       const epoch = getCurrentEpoch(intervalSeconds);
-
-      // Fetch current group root from chain (or use 0 for local testing)
-      let root = 0n;
-      try {
-        root = await getGroupRoot(provider);
-      } catch {
-        // If contract not yet deployed, proceed with 0 (for dev)
-      }
-
       const nullifierHash = await computeNullifierHash(identity.nullifier, epoch);
-      const signalHash = await computeSignalHash(epoch);
+
+      // Fetch current group root from chain
+      let onChainRoot = 0n;
+      let memberCount = 0;
+      try {
+        const [root, count] = await Promise.all([
+          getGroupRoot(provider),
+          getMemberCount(provider),
+        ]);
+        onChainRoot = root;
+        memberCount = count;
+      } catch {
+        // Contract not yet deployed — use empty tree root
+      }
 
       setProofStep("loading_circuit");
 
-      // Build a dummy Merkle witness (all zeros — valid only against an empty tree root)
-      // In production, fetch the actual Merkle path from an indexer or the contract
-      const merkleWitness = {
-        path: Array(20).fill(0n),
-        indices: Array(20).fill(0),
-      };
+      // Fetch all leaves from chain to reconstruct the Merkle tree
+      const { computeMerklePath } = await import("@/lib/merkle");
+      const leaves: bigint[] = [];
+      for (let i = 0; i < memberCount; i++) {
+        try {
+          const leaf = await getLeaf(provider, i);
+          leaves.push(leaf);
+        } catch {
+          leaves.push(0n);
+        }
+      }
+      // Ensure at least our commitment is in the tree
+      if (leaves.length === 0) {
+        leaves.push(identity.commitment);
+      }
+
+      // Find our leaf index
+      const myIndex = leaves.findIndex((l) => l === identity.commitment);
+      const leafIndex = myIndex >= 0 ? myIndex : 0;
 
       setProofStep("computing_witness");
+
+      // Compute Merkle path using BN254 Poseidon2 (matches Noir circuit)
+      const { path, indices, root: computedRoot } = await computeMerklePath(
+        leaves,
+        leafIndex
+      );
+
+      // Use the on-chain root for the checkin call; use computed root for the proof
+      const root = onChainRoot > 0n ? onChainRoot : computedRoot;
+      const signalHash = await computeSignalHash(epoch);
+
+      const merkleWitness = { path, indices };
 
       setProofStep("generating_proof");
       const proof = await generateLivenessProof({

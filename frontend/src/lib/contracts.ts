@@ -1,8 +1,5 @@
 /**
  * Contract interaction layer for Thanatos Protocol.
- *
- * Provides typed wrappers around the LivenessRegistry and VaultController
- * Starknet contracts using starknet.js v6.
  */
 
 import {
@@ -16,13 +13,8 @@ import {
   type ProviderInterface,
 } from "starknet";
 
-// Use ProviderInterface to be compatible with both RpcProvider and the
-// ProviderInterface returned by @starknet-react/core's useProvider hook
 type Provider = ProviderInterface;
 
-// ---------------------------------------------------------------------------
-// Contract addresses — override via environment variables
-// ---------------------------------------------------------------------------
 export const CONTRACT_ADDRESSES = {
   LIVENESS_REGISTRY:
     process.env.NEXT_PUBLIC_LIVENESS_REGISTRY_ADDRESS ??
@@ -35,18 +27,16 @@ export const CONTRACT_ADDRESSES = {
     "0x0000000000000000000000000000000000000000000000000000000000000000",
   STRK_TOKEN:
     process.env.NEXT_PUBLIC_STRK_TOKEN_ADDRESS ??
-    "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d", // Sepolia STRK
+    "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
 } as const;
 
-// ---------------------------------------------------------------------------
-// ABIs (minimal — only the functions we call)
-// ---------------------------------------------------------------------------
 export const LIVENESS_REGISTRY_ABI = [
   {
     type: "function",
     name: "register",
     inputs: [
       { name: "identity_commitment", type: "core::felt252" },
+      { name: "new_root", type: "core::felt252" },
       { name: "vault_commitment", type: "core::felt252" },
       { name: "interval_seconds", type: "core::integer::u64" },
       { name: "nullifier_hash", type: "core::felt252" },
@@ -58,10 +48,7 @@ export const LIVENESS_REGISTRY_ABI = [
     type: "function",
     name: "checkin",
     inputs: [
-      {
-        name: "proof",
-        type: "core::array::Array::<core::felt252>",
-      },
+      { name: "proof", type: "core::array::Array::<core::felt252>" },
       { name: "nullifier_hash", type: "core::felt252" },
       { name: "signal_hash", type: "core::felt252" },
       { name: "root", type: "core::felt252" },
@@ -105,6 +92,27 @@ export const LIVENESS_REGISTRY_ABI = [
     outputs: [{ type: "core::felt252" }],
     state_mutability: "view",
   },
+  {
+    type: "function",
+    name: "get_checkin_interval",
+    inputs: [{ name: "nullifier_hash", type: "core::felt252" }],
+    outputs: [{ type: "core::integer::u64" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_leaf",
+    inputs: [{ name: "index", type: "core::integer::u32" }],
+    outputs: [{ type: "core::felt252" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_member_count",
+    inputs: [],
+    outputs: [{ type: "core::integer::u32" }],
+    state_mutability: "view",
+  },
 ] as const;
 
 export const VAULT_CONTROLLER_ABI = [
@@ -113,14 +121,8 @@ export const VAULT_CONTROLLER_ABI = [
     name: "deposit",
     inputs: [
       { name: "vault_commitment", type: "core::felt252" },
-      {
-        name: "encrypted_beneficiary",
-        type: "core::array::Array::<core::felt252>",
-      },
-      {
-        name: "token",
-        type: "core::starknet::contract_address::ContractAddress",
-      },
+      { name: "encrypted_beneficiary", type: "core::array::Array::<core::felt252>" },
+      { name: "token", type: "core::starknet::contract_address::ContractAddress" },
       { name: "amount", type: "core::integer::u256" },
     ],
     outputs: [],
@@ -138,14 +140,8 @@ export const VAULT_CONTROLLER_ABI = [
     name: "claim",
     inputs: [
       { name: "vault_commitment", type: "core::felt252" },
-      {
-        name: "claim_proof",
-        type: "core::array::Array::<core::felt252>",
-      },
-      {
-        name: "recipient",
-        type: "core::starknet::contract_address::ContractAddress",
-      },
+      { name: "claim_proof", type: "core::array::Array::<core::felt252>" },
+      { name: "recipient", type: "core::starknet::contract_address::ContractAddress" },
     ],
     outputs: [],
     state_mutability: "external",
@@ -173,9 +169,6 @@ export const VAULT_CONTROLLER_ABI = [
   },
 ] as const;
 
-// ---------------------------------------------------------------------------
-// Contract factory functions
-// ---------------------------------------------------------------------------
 export function getRegistryContract(provider: Provider): Contract {
   return new Contract(
     LIVENESS_REGISTRY_ABI as unknown as object[],
@@ -192,17 +185,15 @@ export function getVaultController(provider: Provider): Contract {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Transaction helpers
-// ---------------------------------------------------------------------------
-
 /**
- * Register a new identity in the Semaphore group and link it to a vault.
+ * Register a new identity. The caller must supply the new Merkle root
+ * computed off-chain using BN254 Poseidon2 (matching the Noir circuit).
  */
 export async function registerVault(
   account: Account,
   params: {
     identityCommitment: bigint;
+    newRoot: bigint;
     vaultCommitment: bigint;
     intervalSeconds: number;
     nullifierHash: bigint;
@@ -213,20 +204,16 @@ export async function registerVault(
     entrypoint: "register",
     calldata: CallData.compile({
       identity_commitment: "0x" + params.identityCommitment.toString(16),
+      new_root: "0x" + params.newRoot.toString(16),
       vault_commitment: "0x" + params.vaultCommitment.toString(16),
       interval_seconds: params.intervalSeconds,
       nullifier_hash: "0x" + params.nullifierHash.toString(16),
     }),
   };
-
   const tx = await account.execute(call);
   return account.waitForTransaction(tx.transaction_hash);
 }
 
-/**
- * Submit a liveness proof to the LivenessRegistry.
- * The proof array is the serialized Garaga-encoded proof.
- */
 export async function submitCheckin(
   account: Account,
   params: {
@@ -248,14 +235,10 @@ export async function submitCheckin(
       epoch: "0x" + params.epoch.toString(16),
     }),
   };
-
   const tx = await account.execute(call);
   return account.waitForTransaction(tx.transaction_hash);
 }
 
-/**
- * Deposit tokens into a vault with encrypted beneficiary data.
- */
 export async function depositToVault(
   account: Account,
   params: {
@@ -265,7 +248,6 @@ export async function depositToVault(
     amount: bigint;
   }
 ): Promise<GetTransactionReceiptResponse> {
-  // First approve token transfer
   const approveCall: Call = {
     contractAddress: params.token,
     entrypoint: "approve",
@@ -274,7 +256,6 @@ export async function depositToVault(
       amount: cairo.uint256(params.amount),
     }),
   };
-
   const depositCall: Call = {
     contractAddress: CONTRACT_ADDRESSES.VAULT_CONTROLLER,
     entrypoint: "deposit",
@@ -287,15 +268,10 @@ export async function depositToVault(
       amount: cairo.uint256(params.amount),
     }),
   };
-
-  // Multicall: approve + deposit atomically
   const tx = await account.execute([approveCall, depositCall]);
   return account.waitForTransaction(tx.transaction_hash);
 }
 
-/**
- * Claim vault funds as the beneficiary.
- */
 export async function claimVault(
   account: Account,
   params: {
@@ -313,23 +289,16 @@ export async function claimVault(
       recipient: params.recipient,
     }),
   };
-
   const tx = await account.execute(call);
   return account.waitForTransaction(tx.transaction_hash);
 }
 
-/**
- * Read the current group root from the LivenessRegistry.
- */
 export async function getGroupRoot(provider: Provider): Promise<bigint> {
   const contract = getRegistryContract(provider);
   const result = await contract.call("get_group_root", []);
   return BigInt(result as string);
 }
 
-/**
- * Read the last check-in timestamp for a nullifier.
- */
 export async function getLastCheckin(
   provider: Provider,
   nullifierHash: bigint
@@ -341,9 +310,6 @@ export async function getLastCheckin(
   return Number(result);
 }
 
-/**
- * Read the missed check-in count for a nullifier.
- */
 export async function getMissedCount(
   provider: Provider,
   nullifierHash: bigint
@@ -355,9 +321,32 @@ export async function getMissedCount(
   return Number(result);
 }
 
-/**
- * Check whether a vault has been activated.
- */
+export async function getCheckinInterval(
+  provider: Provider,
+  nullifierHash: bigint
+): Promise<number> {
+  const contract = getRegistryContract(provider);
+  const result = await contract.call("get_checkin_interval", [
+    "0x" + nullifierHash.toString(16),
+  ]);
+  return Number(result);
+}
+
+export async function getMemberCount(provider: Provider): Promise<number> {
+  const contract = getRegistryContract(provider);
+  const result = await contract.call("get_member_count", []);
+  return Number(result);
+}
+
+export async function getLeaf(
+  provider: Provider,
+  index: number
+): Promise<bigint> {
+  const contract = getRegistryContract(provider);
+  const result = await contract.call("get_leaf", [index]);
+  return BigInt(result as string);
+}
+
 export async function isVaultActivated(
   provider: Provider,
   vaultCommitment: bigint
@@ -370,29 +359,24 @@ export async function isVaultActivated(
 }
 
 /**
- * Derive the vault commitment from a seed + salt.
- * vault_commitment = Poseidon(seed, salt)
- * The seed is the identity_commitment; the salt is a random value shared
- * off-chain with the beneficiary.
+ * Derive the vault commitment using Starknet Poseidon (felt252-safe).
+ * vault_commitment = poseidon([recipient_address_as_felt252, salt])
+ * This is independent of the ZK circuit and always fits in felt252.
  */
-export function deriveVaultCommitment(seed: bigint, salt: bigint): bigint {
-  // Starknet Poseidon is used here for on-chain compatibility
+export function deriveVaultCommitment(
+  recipientAddress: string,
+  salt: bigint
+): bigint {
   const result = hash.computePoseidonHashOnElements([
-    "0x" + seed.toString(16),
+    recipientAddress,
     "0x" + salt.toString(16),
   ]);
   return BigInt(result);
 }
 
-/**
- * Scan for VaultActivated events for a given vault commitment.
- * Returns true if the vault has been activated (useful for beneficiary polling).
- */
 export async function scanForActivation(
   provider: Provider,
   vaultCommitment: bigint
 ): Promise<boolean> {
-  // In production: query event logs filtered by vault_commitment key.
-  // For now: directly read contract state.
   return isVaultActivated(provider, vaultCommitment);
 }

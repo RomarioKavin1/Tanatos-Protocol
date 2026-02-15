@@ -12,7 +12,6 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { hash } from "starknet";
 import { isVaultActivated, claimVault, getVaultController } from "@/lib/contracts";
 import { isValidAddress } from "@/lib/starknet";
 import type { Account } from "starknet";
@@ -80,14 +79,15 @@ export function BeneficiaryClaim() {
       return;
     }
 
-    // Build the claim proof: for MVP, encode the claim key as felt252 array
-    // In production, this would be a ZK proof of knowledge of the private key
-    const claimProof: string[] = claimKeyInput
-      .match(/.{1,31}/g)
-      ?.map((chunk) => {
-        const hex = Buffer.from(chunk, "utf8").toString("hex");
-        return "0x" + hex.padStart(62, "0");
-      }) ?? ["0x1"]; // fallback non-empty proof
+    // Claim proof = [salt] where:
+    // vault_commitment = poseidon([recipient_address, salt])
+    // The contract verifies: poseidon([recipient, claim_proof[0]]) == vault_commitment
+    let saltHex = claimKeyInput.trim();
+    if (!saltHex.startsWith("0x")) {
+      toast.error("Claim salt must be a hex value (0x...).");
+      return;
+    }
+    const claimProof: string[] = [saltHex];
 
     setClaimState("claiming");
 
@@ -254,10 +254,10 @@ export function BeneficiaryClaim() {
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="text-sm font-medium mb-2 block">Claim Key</label>
+                <label className="text-sm font-medium mb-2 block">Claim Salt (hex)</label>
                 <input
                   type="text"
-                  placeholder="Your secret claim key (shared by the vault creator)"
+                  placeholder="0x... (secret salt shared by the vault creator)"
                   value={claimKeyInput}
                   onChange={(e) => setClaimKeyInput(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-sm"
@@ -368,7 +368,7 @@ export function BeneficiaryClaim() {
             </li>
             <li className="flex gap-2">
               <span style={{ color: "var(--secondary)" }}>2.</span>
-              The <strong>claim key</strong> — a secret shared with you by the vault creator.
+              The <strong>claim salt</strong> — a hex value (0x...) shared with you by the vault creator.
             </li>
             <li className="flex gap-2">
               <span style={{ color: "var(--secondary)" }}>3.</span>

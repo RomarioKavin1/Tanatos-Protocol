@@ -5,9 +5,13 @@ use starknet::ContractAddress;
 #[starknet::interface]
 pub trait ILivenessRegistry<TContractState> {
     /// Register a new identity in the Semaphore group and link it to a vault.
+    /// The caller MUST supply new_root — the BN254 Poseidon2 Merkle root
+    /// after inserting identity_commitment at the next available leaf index.
+    /// This root is computed off-chain using @aztec/bb.js Poseidon2.
     fn register(
         ref self: TContractState,
         identity_commitment: felt252,
+        new_root: felt252,
         vault_commitment: felt252,
         interval_seconds: u64,
         nullifier_hash: felt252,
@@ -24,7 +28,6 @@ pub trait ILivenessRegistry<TContractState> {
     );
 
     /// Anyone can call this after interval + grace period passes without a check-in.
-    /// Increments missed count; at threshold, activates the linked vault.
     fn report_missed(ref self: TContractState, nullifier_hash: felt252);
 
     /// Returns the timestamp of the last successful check-in for a nullifier.
@@ -33,15 +36,23 @@ pub trait ILivenessRegistry<TContractState> {
     /// Returns the number of consecutive missed check-ins.
     fn get_missed_count(self: @TContractState, nullifier_hash: felt252) -> u32;
 
-    /// Returns the current Semaphore group Merkle root.
+    /// Returns the current Semaphore group Merkle root (BN254 Poseidon2).
     fn get_group_root(self: @TContractState) -> felt252;
 
     /// Returns the vault commitment linked to a given nullifier hash.
     fn get_vault_commitment(self: @TContractState, nullifier_hash: felt252) -> felt252;
+
+    /// Returns the check-in interval (seconds) for a given nullifier hash.
+    fn get_checkin_interval(self: @TContractState, nullifier_hash: felt252) -> u64;
+
+    /// Returns the identity commitment (leaf value) at the given tree index.
+    fn get_leaf(self: @TContractState, index: u32) -> felt252;
+
+    /// Returns the number of registered members (number of leaves in the tree).
+    fn get_member_count(self: @TContractState) -> u32;
 }
 
 /// Interface for the VaultController contract.
-/// Manages ERC-20 deposits that can be claimed by beneficiaries after activation.
 #[starknet::interface]
 pub trait IVaultController<TContractState> {
     /// Deposit tokens and store encrypted beneficiary data.
@@ -56,7 +67,8 @@ pub trait IVaultController<TContractState> {
     /// Activate a vault (only callable by LivenessRegistry after threshold missed).
     fn activate(ref self: TContractState, vault_commitment: felt252);
 
-    /// Claim vault funds by proving beneficiary identity.
+    /// Claim vault funds by proving knowledge of the vault preimage.
+    /// claim_proof = [salt] where vault_commitment = poseidon_hash_span([recipient_as_felt252, salt])
     fn claim(
         ref self: TContractState,
         vault_commitment: felt252,
@@ -64,38 +76,22 @@ pub trait IVaultController<TContractState> {
         recipient: ContractAddress,
     );
 
-    /// Returns true if the vault has been activated.
     fn is_activated(self: @TContractState, vault_commitment: felt252) -> bool;
-
-    /// Returns true if the vault funds have been claimed.
     fn is_claimed(self: @TContractState, vault_commitment: felt252) -> bool;
 
-    /// Returns the encrypted beneficiary data array stored at deposit time.
     fn get_encrypted_beneficiary(
         self: @TContractState, vault_commitment: felt252
     ) -> Array<felt252>;
 
-    /// One-time initializer: set the LivenessRegistry address after deployment.
-    /// Can only be called by the owner when liveness_registry is not yet set.
     fn set_registry(ref self: TContractState, registry: ContractAddress);
-
-    /// Returns the configured LivenessRegistry address.
     fn get_registry(self: @TContractState) -> ContractAddress;
 }
 
 /// Interface for the KeeperRegistry contract.
-/// Manages keeper staking for the automated missed-checkin reporting network.
 #[starknet::interface]
 pub trait IKeeperRegistry<TContractState> {
-    /// Stake STRK tokens to become a keeper.
     fn stake(ref self: TContractState, amount: u256);
-
-    /// Unstake previously staked STRK tokens.
     fn unstake(ref self: TContractState, amount: u256);
-
-    /// Returns the staked amount for a given keeper address.
     fn get_stake(self: @TContractState, keeper: ContractAddress) -> u256;
-
-    /// Returns true if the keeper has at least the minimum stake.
     fn is_active_keeper(self: @TContractState, keeper: ContractAddress) -> bool;
 }

@@ -121,27 +121,51 @@ export function VaultSetup() {
       return;
     }
 
-    // Parse beneficiary: we store the raw key as field elements
-    const beneficiaryFields = beneficiaryKey
-      .match(/.{1,62}/g)
-      ?.map((chunk) => BigInt("0x" + Buffer.from(chunk, "utf8").toString("hex"))) ?? [];
+    // Validate beneficiary is a Starknet address (0x...)
+    const beneficiaryAddress = beneficiaryKey.trim();
+    if (!beneficiaryAddress.startsWith("0x") || beneficiaryAddress.length < 10) {
+      toast.error("Beneficiary must be a Starknet address (0x...).");
+      return;
+    }
 
-    // Derive the salt from vaultSalt string
-    const salt = vaultSalt
-      ? BigInt("0x" + Buffer.from(vaultSalt, "utf8").toString("hex").slice(0, 62))
-      : identity.nullifier;
+    // Generate a random salt for the vault commitment
+    const saltBytes = new Uint8Array(31);
+    crypto.getRandomValues(saltBytes);
+    let salt = 0n;
+    for (const b of saltBytes) salt = (salt << 8n) | BigInt(b);
 
-    const vaultCommitment = deriveVaultCommitment(identity.commitment, salt);
+    // vault_commitment = Starknet Poseidon(beneficiary_address, salt)
+    // This is felt252-safe and independent of the ZK circuit.
+    // The beneficiary proves ownership by revealing: [salt]
+    // along with claiming as the recipient address.
+    const vaultCommitment = deriveVaultCommitment(beneficiaryAddress, salt);
+
+    // Store beneficiary data for vault: [beneficiaryAddress_as_felt252, salt]
+    // The beneficiary will use these to construct their claim proof.
+    const encryptedBeneficiary = [
+      BigInt(beneficiaryAddress),
+      salt,
+    ];
+
     const epoch = getCurrentEpoch(intervalSeconds);
     const nullifierHash = await computeNullifierHash(identity.nullifier, epoch);
     const amountWei = BigInt(Math.floor(amount * 1e18));
 
     setIsLoading(true);
     try {
-      // 1. Register identity on-chain
+      // Compute the new Merkle root (BN254 Poseidon2, matches Noir circuit)
+      toast.loading("Computing Merkle root...", { id: "deploy" });
+      const { computeMerklePath } = await import("@/lib/merkle");
+      const { root: newRoot } = await computeMerklePath(
+        [identity.commitment],
+        0
+      );
+
+      // 1. Register identity on-chain with the correct Merkle root
       toast.loading("Registering identity on Starknet...", { id: "deploy" });
       await registerVault(account as Account, {
         identityCommitment: identity.commitment,
+        newRoot,
         vaultCommitment,
         intervalSeconds,
         nullifierHash,
@@ -151,10 +175,17 @@ export function VaultSetup() {
       toast.loading("Depositing tokens to vault...", { id: "deploy" });
       await depositToVault(account as Account, {
         vaultCommitment,
-        encryptedBeneficiary: beneficiaryFields,
+        encryptedBeneficiary,
         token: tokenAddress,
         amount: amountWei,
       });
+
+      // 3. Save salt to localStorage so we can show the beneficiary what to use
+      localStorage.setItem(
+        "thanatos_vault_salt",
+        "0x" + salt.toString(16).padStart(62, "0")
+      );
+      localStorage.setItem("thanatos_vault_commitment", "0x" + vaultCommitment.toString(16));
 
       toast.success("Vault deployed successfully!", { id: "deploy" });
     } catch (err: unknown) {
@@ -382,11 +413,11 @@ export function VaultSetup() {
 
               <div className="mb-6">
                 <label className="text-sm font-medium mb-2 block">
-                  Beneficiary Claim Key
+                  Beneficiary Starknet Address
                 </label>
                 <input
                   type="text"
-                  placeholder="0x... or email or any identifier"
+                  placeholder="0x... (Starknet address of the beneficiary)"
                   value={beneficiaryKey}
                   onChange={(e) => setBeneficiaryKey(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-sm font-mono"
@@ -398,30 +429,8 @@ export function VaultSetup() {
                   }}
                 />
                 <p className="text-xs mt-2" style={{ color: "var(--muted-foreground)" }}>
-                  This is stored encrypted on-chain. Only someone with the matching private
-                  key can claim the vault.
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Vault Salt (optional, for extra privacy)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Random salt to randomize vault commitment"
-                  value={vaultSalt}
-                  onChange={(e) => setVaultSalt(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl text-sm"
-                  style={{
-                    background: "var(--background)",
-                    border: "1px solid var(--card-border)",
-                    color: "var(--foreground)",
-                    outline: "none",
-                  }}
-                />
-                <p className="text-xs mt-2" style={{ color: "var(--muted-foreground)" }}>
-                  Share this salt with your beneficiary so they can locate your vault.
+                  The vault will be claimable only by this Starknet address. A secret salt
+                  is generated and stored locally — share it with the beneficiary.
                 </p>
               </div>
             </div>

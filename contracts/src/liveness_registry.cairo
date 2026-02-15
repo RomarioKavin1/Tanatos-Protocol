@@ -5,7 +5,6 @@ pub mod LivenessRegistry {
         StoragePointerReadAccess, StoragePointerWriteAccess, Map, StorageMapReadAccess,
         StorageMapWriteAccess,
     };
-    use core::poseidon::poseidon_hash_span;
     use crate::errors::Errors;
     use crate::interfaces::{IVaultControllerDispatcher, IVaultControllerDispatcherTrait};
 
@@ -18,11 +17,11 @@ pub mod LivenessRegistry {
 
     #[storage]
     struct Storage {
-        // Semaphore group state
+        // Semaphore group state — root is BN254 Poseidon2, computed off-chain
         group_root: felt252,
+        // Leaves of the Merkle tree: index -> identity_commitment
+        leaves: Map<u32, felt252>,
         member_count: u32,
-        // Sparse Merkle tree nodes: (level, index) -> node_hash
-        merkle_tree: Map<(u32, u32), felt252>,
         tree_depth: u32,
         // Per-nullifier state
         last_checkin: Map<felt252, u64>,
@@ -96,9 +95,8 @@ pub mod LivenessRegistry {
         self.max_missed.write(DEFAULT_MAX_MISSED);
         self.tree_depth.write(20);
         self.member_count.write(0);
-        // Initialize Merkle root as hash of two zeros (empty tree)
-        let empty_root = poseidon_hash_span(array![0, 0].span());
-        self.group_root.write(empty_root);
+        // Root starts at 0 (empty tree — no members registered yet)
+        self.group_root.write(0);
     }
 
     #[abi(embed_v0)]
@@ -106,6 +104,7 @@ pub mod LivenessRegistry {
         fn register(
             ref self: ContractState,
             identity_commitment: felt252,
+            new_root: felt252,
             vault_commitment: felt252,
             interval_seconds: u64,
             nullifier_hash: felt252,
@@ -114,14 +113,14 @@ pub mod LivenessRegistry {
             assert(interval_seconds >= MIN_INTERVAL, Errors::INVALID_INTERVAL);
 
             let now = get_block_timestamp();
-
-            // Insert identity_commitment as a new leaf in the Merkle tree
             let index = self.member_count.read();
-            self.merkle_tree.write((0, index), identity_commitment);
+
+            // Store the leaf (identity commitment) for off-chain tree reconstruction
+            self.leaves.write(index, identity_commitment);
             self.member_count.write(index + 1);
 
-            // Recompute root up from the new leaf
-            let new_root = self._compute_root_after_insert(index, identity_commitment);
+            // Accept the new root from the client (computed off-chain with BN254 Poseidon2)
+            // In production with Garaga: verify a Merkle insertion proof before accepting
             self.group_root.write(new_root);
 
             // Store per-nullifier state
@@ -149,17 +148,20 @@ pub mod LivenessRegistry {
             epoch: felt252,
         ) {
             assert(self.registered.read(nullifier_hash), Errors::NOT_REGISTERED);
-            // Prevent re-use of the same (nullifier_hash, epoch) pair
             assert(
                 !self.used_epoch_nullifiers.read((nullifier_hash, epoch)), Errors::NULLIFIER_USED,
             );
 
-            // Verify submitted root matches on-chain group root
-            // In production this would invoke the Garaga Groth16 verifier with `proof`
+            // Verify submitted root matches on-chain group root.
+            // When Garaga verifier is deployed (pending bb 0.82.x → garaga 1.0.x VK format fix),
+            // this block will be replaced by:
+            //   let verifier = IGaragaUltraHonkVerifierDispatcher {
+            //       contract_address: self.garaga_verifier.read()
+            //   };
+            //   verifier.verify_ultra_keccak_zk_honk_proof(proof.span());
             let current_root = self.group_root.read();
             assert(root == current_root, Errors::INVALID_PROOF);
 
-            // Mark this epoch as used for this nullifier
             self.used_epoch_nullifiers.write((nullifier_hash, epoch), true);
 
             let now = get_block_timestamp();
@@ -176,15 +178,12 @@ pub mod LivenessRegistry {
             let last = self.last_checkin.read(nullifier_hash);
             let interval = self.checkin_interval.read(nullifier_hash);
 
-            // Must have missed at least one full interval plus the grace period
             assert(now >= last + interval + GRACE_PERIOD, Errors::INTERVAL_NOT_ELAPSED);
 
             let caller = get_caller_address();
             let current_missed = self.missed_checkins.read(nullifier_hash);
             let new_missed = current_missed + 1;
             self.missed_checkins.write(nullifier_hash, new_missed);
-
-            // Advance last_checkin by one interval so the same window cannot be reported twice
             self.last_checkin.write(nullifier_hash, last + interval);
 
             self
@@ -197,18 +196,15 @@ pub mod LivenessRegistry {
                     },
                 );
 
-            // If threshold reached, activate the linked vault
             let max = self.max_missed.read();
             if new_missed >= max {
                 let vc_commitment = self.vault_commitment.read(nullifier_hash);
-
                 self
                     .emit(
                         Activated {
                             nullifier_hash, vault_commitment: vc_commitment, timestamp: now,
                         },
                     );
-
                 let vault_controller_addr = self.vault_controller.read();
                 let vc = IVaultControllerDispatcher {
                     contract_address: vault_controller_addr,
@@ -232,48 +228,17 @@ pub mod LivenessRegistry {
         fn get_vault_commitment(self: @ContractState, nullifier_hash: felt252) -> felt252 {
             self.vault_commitment.read(nullifier_hash)
         }
-    }
 
-    #[generate_trait]
-    impl InternalImpl of InternalTrait {
-        /// Recomputes the Merkle root after inserting a leaf at the given index.
-        /// Walks up from the leaf, reading sibling nodes and writing parent hashes.
-        fn _compute_root_after_insert(
-            ref self: ContractState, index: u32, leaf: felt252,
-        ) -> felt252 {
-            let mut current = leaf;
-            let mut idx = index;
-            let depth = self.tree_depth.read();
+        fn get_checkin_interval(self: @ContractState, nullifier_hash: felt252) -> u64 {
+            self.checkin_interval.read(nullifier_hash)
+        }
 
-            let mut level: u32 = 0;
-            loop {
-                if level >= depth {
-                    break;
-                }
+        fn get_leaf(self: @ContractState, index: u32) -> felt252 {
+            self.leaves.read(index)
+        }
 
-                // Sibling is at the adjacent index at the same level
-                let sibling_idx = if idx % 2 == 0 {
-                    idx + 1
-                } else {
-                    idx - 1
-                };
-                let sibling = self.merkle_tree.read((level, sibling_idx));
-
-                let (left, right) = if idx % 2 == 0 {
-                    (current, sibling)
-                } else {
-                    (sibling, current)
-                };
-
-                current = poseidon_hash_span(array![left, right].span());
-                let parent_idx = idx / 2;
-                self.merkle_tree.write((level + 1, parent_idx), current);
-
-                idx = parent_idx;
-                level += 1;
-            };
-
-            current
+        fn get_member_count(self: @ContractState) -> u32 {
+            self.member_count.read()
         }
     }
 }

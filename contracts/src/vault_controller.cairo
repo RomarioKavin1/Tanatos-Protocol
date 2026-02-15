@@ -5,6 +5,7 @@ pub mod VaultController {
         StoragePointerReadAccess, StoragePointerWriteAccess, Map, StorageMapReadAccess,
         StorageMapWriteAccess,
     };
+    use core::poseidon::poseidon_hash_span;
     use crate::errors::Errors;
 
     // Minimal ERC-20 interface for token transfers
@@ -167,10 +168,15 @@ pub mod VaultController {
             assert(self.vault_activated.read(vault_commitment), Errors::NOT_ACTIVATED);
             assert(!self.vault_claimed.read(vault_commitment), Errors::ALREADY_CLAIMED);
 
-            // In production: invoke Garaga verifier with claim_proof to prove knowledge
-            // of the private key corresponding to the pubkey embedded in vault_commitment.
-            // For MVP: require non-empty proof as a guard against accidental empty calls.
-            assert(claim_proof.len() > 0, Errors::INVALID_CLAIM);
+            // Verify claim by checking the hash preimage:
+            // vault_commitment = poseidon_hash_span([recipient_as_felt252, salt])
+            // claim_proof[0] = salt (the secret known only to the beneficiary)
+            // This proves the claimant knows the salt committed to in vault_commitment.
+            assert(claim_proof.len() >= 1, Errors::INVALID_CLAIM);
+            let salt = *claim_proof.at(0);
+            let recipient_felt: felt252 = recipient.into();
+            let computed = poseidon_hash_span(array![recipient_felt, salt].span());
+            assert(computed == vault_commitment, Errors::INVALID_CLAIM);
 
             let token = self.vault_token.read(vault_commitment);
             let amount = self.vault_amount.read(vault_commitment);
