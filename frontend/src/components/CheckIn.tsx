@@ -144,7 +144,7 @@ export function CheckIn() {
         epoch,
       });
 
-      setTxHash(receipt.transaction_hash);
+      setTxHash("transaction_hash" in receipt ? receipt.transaction_hash : "");
       setProofStep("done");
       setDeadline(getEpochDeadline(intervalSeconds));
       toast.success("Check-in successful! You're alive.");

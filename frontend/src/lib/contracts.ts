@@ -7,14 +7,18 @@
 
 import {
   Contract,
-  Provider,
   Account,
   CallData,
   cairo,
   hash,
   type Call,
   type GetTransactionReceiptResponse,
+  type ProviderInterface,
 } from "starknet";
+
+// Use ProviderInterface to be compatible with both RpcProvider and the
+// ProviderInterface returned by @starknet-react/core's useProvider hook
+type Provider = ProviderInterface;
 
 // ---------------------------------------------------------------------------
 // Contract addresses — override via environment variables

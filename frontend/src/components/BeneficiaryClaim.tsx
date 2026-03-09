@@ -98,7 +98,7 @@ export function BeneficiaryClaim() {
         recipient,
       });
 
-      setTxHash(receipt.transaction_hash);
+      setTxHash("transaction_hash" in receipt ? receipt.transaction_hash : "");
       setClaimState("claimed");
       toast.success("Vault claimed successfully!");
     } catch (err: unknown) {

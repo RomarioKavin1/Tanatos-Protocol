@@ -1,33 +1,30 @@
 /**
  * ZK proof generation for Thanatos Protocol.
  *
- * Uses @noir-lang/noir_js (Noir runtime) and @noir-lang/backend_barretenberg
- * (Barretenberg UltraHonk backend) to generate and verify liveness proofs
- * entirely in the browser (or in Node for testing).
+ * Uses @noir-lang/noir_js (Noir runtime) and @aztec/bb.js (Barretenberg
+ * UltraHonk backend) to generate and verify liveness proofs entirely in the
+ * browser (or in Node for testing).
  *
  * The compiled circuit artifact (JSON) is loaded from /public/circuits/liveness.json.
- * Run `nargo compile` then copy target/liveness.json to frontend/public/circuits/.
+ * Run `nargo compile` in circuits/liveness, then copy target/liveness.json to
+ * frontend/public/circuits/liveness.json.
  */
 
 import { Noir } from "@noir-lang/noir_js";
-import { UltraHonkBackend } from "@noir-lang/backend_barretenberg";
+import { Barretenberg, UltraHonkBackend } from "@aztec/bb.js";
+import type { CompiledCircuit } from "@noir-lang/types";
 import type { Identity } from "./identity";
-
-// Type aliases matching @noir-lang/noir_js API
-type CompiledCircuit = {
-  bytecode: string;
-  abi: unknown;
-};
 
 type ProofData = {
   proof: Uint8Array;
   publicInputs: string[];
 };
 
-// Cached singleton instances (avoid reloading WASM on every proof)
+// Singleton instances — avoid reloading multi-MB WASM on every proof
 let cachedNoir: Noir | null = null;
 let cachedBackend: UltraHonkBackend | null = null;
 let cachedCircuit: CompiledCircuit | null = null;
+let cachedApi: Barretenberg | null = null;
 
 /**
  * Load the compiled Noir circuit from the public directory.
@@ -38,15 +35,18 @@ async function loadCircuit(): Promise<CompiledCircuit> {
   if (!resp.ok) {
     throw new Error(
       `Failed to load circuit: ${resp.status} ${resp.statusText}\n` +
-        "Run 'nargo compile' in circuits/liveness and copy the output to frontend/public/circuits/liveness.json"
+        "Run 'nargo compile' in circuits/liveness and copy target/liveness.json " +
+        "to frontend/public/circuits/liveness.json"
     );
   }
-  cachedCircuit = (await resp.json()) as CompiledCircuit;
+  cachedCircuit = (await resp.json()) as unknown as CompiledCircuit;
   return cachedCircuit;
 }
 
 /**
- * Initialize Noir and Barretenberg backend (idempotent).
+ * Initialize Noir and Barretenberg backend (idempotent singleton).
+ * In @aztec/bb.js 4.x the UltraHonkBackend constructor requires a
+ * pre-initialized Barretenberg API instance as its second argument.
  */
 async function initProver(): Promise<{ noir: Noir; backend: UltraHonkBackend }> {
   if (cachedNoir && cachedBackend) {
@@ -54,8 +54,13 @@ async function initProver(): Promise<{ noir: Noir; backend: UltraHonkBackend }> 
   }
 
   const circuit = await loadCircuit();
-  const backend = new UltraHonkBackend(circuit.bytecode);
-  const noir = new Noir(circuit);
+
+  // threads: 1 avoids SharedArrayBuffer requirement in browsers without COOP/COEP
+  const api = await Barretenberg.new({ threads: 1 });
+  cachedApi = api;
+
+  const backend = new UltraHonkBackend(circuit.bytecode, api);
+  const noir = new Noir(circuit as CompiledCircuit);
 
   cachedNoir = noir;
   cachedBackend = backend;
@@ -64,8 +69,8 @@ async function initProver(): Promise<{ noir: Noir; backend: UltraHonkBackend }> 
 }
 
 export interface MerkleWitness {
-  path: bigint[]; // sibling hashes, length 20
-  indices: number[]; // 0 or 1, length 20
+  path: bigint[]; // sibling hashes — length 20
+  indices: number[]; // 0 = current is left child, 1 = right child — length 20
 }
 
 export interface LivenessProofInputs {
@@ -83,27 +88,27 @@ export interface LivenessProof {
 }
 
 /**
- * Convert a bigint to a hex-prefixed string suitable for Noir inputs.
+ * Convert a bigint to a 0x-prefixed, 64-char hex string for Noir inputs.
  */
 function toHex(n: bigint): string {
   return "0x" + n.toString(16).padStart(64, "0");
 }
 
 /**
- * Generate a liveness proof for the given identity and Merkle witness.
+ * Generate a Thanatos liveness proof.
  *
- * Public outputs that get submitted on-chain:
- *  - root         (Merkle root matching on-chain state)
- *  - nullifierHash (H(nullifier, epoch) — unique per epoch)
- *  - signalHash   (H(epoch))
- *  - epoch        (current epoch number)
+ * Private inputs (never leave the device):
+ *   identity_secret, identity_nullifier, merkle_path, merkle_indices
+ *
+ * Public outputs submitted on-chain:
+ *   root, nullifier_hash, signal_hash, epoch
  */
 export async function generateLivenessProof(
   inputs: LivenessProofInputs
 ): Promise<LivenessProof> {
   const { noir, backend } = await initProver();
 
-  // Pad or truncate merkle path to exactly 20 elements
+  // Pad or truncate Merkle arrays to exactly depth=20
   const path = Array.from({ length: 20 }, (_, i) =>
     toHex(inputs.merkle.path[i] ?? 0n)
   );
@@ -122,11 +127,13 @@ export async function generateLivenessProof(
     epoch: toHex(inputs.epoch),
   };
 
-  // Execute circuit to get witness
+  // Step 1: execute circuit to produce the witness (ACVM execution)
   const { witness } = await noir.execute(circuitInputs);
 
-  // Generate proof
-  const proofData: ProofData = await backend.generateProof(witness);
+  // Step 2: generate the UltraHonk proof from the witness
+  const proofData: ProofData = await backend.generateProof(witness, {
+    verifierTarget: "starknet", // Garaga Starknet verifier target
+  });
 
   return {
     proof: proofData.proof,
@@ -135,33 +142,24 @@ export async function generateLivenessProof(
 }
 
 /**
- * Verify a liveness proof locally (for debugging / pre-submission validation).
+ * Verify a liveness proof locally (debugging / pre-submission check).
  */
-export async function verifyProofLocally(
-  proof: LivenessProof
-): Promise<boolean> {
+export async function verifyProofLocally(proof: LivenessProof): Promise<boolean> {
   const { backend } = await initProver();
-  return backend.verifyProof({
-    proof: proof.proof,
-    publicInputs: proof.publicInputs,
-  });
+  return backend.verifyProof(
+    { proof: proof.proof, publicInputs: proof.publicInputs },
+    { verifierTarget: "starknet" }
+  );
 }
 
 /**
- * Serialize a proof to an array of felt252 strings for Starknet calldata.
- *
- * The on-chain verifier (Garaga) expects the proof in a specific encoding.
- * This produces the raw bytes as hex field elements.
+ * Serialize a proof to felt252 strings for Starknet calldata.
+ * Garaga expects: [public_inputs..., num_chunks, chunk_0, chunk_1, ...]
  */
 export function serializeProofForStarknet(proof: LivenessProof): string[] {
-  const calldata: string[] = [];
+  const calldata: string[] = [...proof.publicInputs];
 
-  // Prepend public inputs
-  for (const pi of proof.publicInputs) {
-    calldata.push(pi);
-  }
-
-  // Encode raw proof bytes as chunks of 31 bytes each (field element max)
+  // Encode raw proof bytes in 31-byte chunks (max felt252 payload)
   const CHUNK = 31;
   const bytes = proof.proof;
   const numChunks = Math.ceil(bytes.length / CHUNK);
@@ -180,30 +178,29 @@ export function serializeProofForStarknet(proof: LivenessProof): string[] {
 }
 
 /**
- * Node.js / script entrypoint for CLI proof generation and testing.
+ * Node.js / CLI entrypoint for testing proof generation locally.
  * Usage: tsx src/lib/prover.ts
  */
 if (typeof process !== "undefined" && process.argv[1]?.endsWith("prover.ts")) {
   console.log("Thanatos Protocol — Test Proof Generator");
   console.log("=========================================");
+  console.log("Generating a test liveness proof with dummy inputs…");
   console.log(
-    "This script generates a test liveness proof with dummy inputs."
-  );
-  console.log(
-    "Make sure frontend/public/circuits/liveness.json exists (run nargo compile first)."
+    "Ensure frontend/public/circuits/liveness.json exists (run nargo compile first).\n"
   );
 
   const dummyInputs: LivenessProofInputs = {
     identity: {
       secret: 123456789n,
       nullifier: 987654321n,
-      commitment: 0n, // will be computed inside circuit
+      commitment: 0n,
     },
     merkle: {
       path: Array(20).fill(0n),
       indices: Array(20).fill(0),
     },
-    root: 0n, // dummy root — will NOT satisfy merkle constraint; just for API testing
+    // These values will fail the circuit constraints — this tests the API only
+    root: 0n,
     nullifierHash: 0n,
     signalHash: 0n,
     epoch: 1n,
@@ -215,7 +212,7 @@ if (typeof process !== "undefined" && process.argv[1]?.endsWith("prover.ts")) {
       console.log("Proof length (bytes):", proof.proof.length);
       console.log("Public inputs:", proof.publicInputs);
     })
-    .catch((err) => {
+    .catch((err: Error) => {
       console.error("Proof generation failed:", err.message);
       process.exit(1);
     });

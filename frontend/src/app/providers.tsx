@@ -3,10 +3,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StarknetConfig, publicProvider } from "@starknet-react/core";
 import { sepolia, mainnet } from "@starknet-react/chains";
-import { ArgentMobileConnector, InjectedConnector } from "starknet-react/connectors";
+import { InjectedConnector } from "@starknet-react/core";
 import { useState } from "react";
 
-// We conditionally import the connector types to avoid SSR issues
 function getConnectors() {
   return [
     new InjectedConnector({ options: { id: "argentX" } }),
@@ -27,7 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  const chains = [sepolia, mainnet] as const;
+  const chains = [sepolia, mainnet];
   const connectors = getConnectors();
 
   return (
