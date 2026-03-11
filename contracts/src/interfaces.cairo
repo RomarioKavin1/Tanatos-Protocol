@@ -2,48 +2,53 @@ use starknet::ContractAddress;
 
 /// Interface for the LivenessRegistry contract.
 /// Handles Semaphore group membership and periodic check-in proofs.
+///
+/// Storage is keyed by identity_commitment (felt252, always Stark-field-safe).
+/// BN254 Poseidon2 values (nullifier_hash, signal_hash) that may exceed the
+/// Stark prime are passed as split (low: u128, high: u128) felt252 pairs and
+/// reconstructed as u256 for comparison with the Garaga verifier output.
 #[starknet::interface]
 pub trait ILivenessRegistry<TContractState> {
     /// Register a new identity in the Semaphore group and link it to a vault.
-    /// The caller MUST supply new_root — the BN254 Poseidon2 Merkle root
-    /// after inserting identity_commitment at the next available leaf index.
-    /// This root is computed off-chain using @aztec/bb.js Poseidon2.
     fn register(
         ref self: TContractState,
         identity_commitment: felt252,
         new_root: felt252,
         vault_commitment: felt252,
         interval_seconds: u64,
-        nullifier_hash: felt252,
     );
 
     /// Submit a ZK proof to prove liveness and reset the missed-check-in counter.
+    /// nullifier_hash and signal_hash are BN254 values passed as (low, high) u128 pairs.
     fn checkin(
         ref self: TContractState,
         proof: Array<felt252>,
-        nullifier_hash: felt252,
-        signal_hash: felt252,
+        identity_commitment: felt252,
+        nullifier_hash_low: felt252,
+        nullifier_hash_high: felt252,
+        signal_hash_low: felt252,
+        signal_hash_high: felt252,
         root: felt252,
         epoch: felt252,
     );
 
     /// Anyone can call this after interval + grace period passes without a check-in.
-    fn report_missed(ref self: TContractState, nullifier_hash: felt252);
+    fn report_missed(ref self: TContractState, identity_commitment: felt252);
 
-    /// Returns the timestamp of the last successful check-in for a nullifier.
-    fn get_last_checkin(self: @TContractState, nullifier_hash: felt252) -> u64;
+    /// Returns the timestamp of the last successful check-in.
+    fn get_last_checkin(self: @TContractState, identity_commitment: felt252) -> u64;
 
     /// Returns the number of consecutive missed check-ins.
-    fn get_missed_count(self: @TContractState, nullifier_hash: felt252) -> u32;
+    fn get_missed_count(self: @TContractState, identity_commitment: felt252) -> u32;
 
     /// Returns the current Semaphore group Merkle root (BN254 Poseidon2).
     fn get_group_root(self: @TContractState) -> felt252;
 
-    /// Returns the vault commitment linked to a given nullifier hash.
-    fn get_vault_commitment(self: @TContractState, nullifier_hash: felt252) -> felt252;
+    /// Returns the vault commitment linked to a given identity commitment.
+    fn get_vault_commitment(self: @TContractState, identity_commitment: felt252) -> felt252;
 
-    /// Returns the check-in interval (seconds) for a given nullifier hash.
-    fn get_checkin_interval(self: @TContractState, nullifier_hash: felt252) -> u64;
+    /// Returns the check-in interval (seconds) for a given identity commitment.
+    fn get_checkin_interval(self: @TContractState, identity_commitment: felt252) -> u64;
 
     /// Returns the identity commitment (leaf value) at the given tree index.
     fn get_leaf(self: @TContractState, index: u32) -> felt252;

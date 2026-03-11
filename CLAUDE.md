@@ -117,8 +117,8 @@ NEXT_PUBLIC_KEEPER_REGISTRY_ADDRESS=0x...
 
 | Contract | Address |
 |----------|---------|
-| LivenessRegistry | `0x0793e0b1466724bcb1a2685b2f7e2a30030d0dd9d08a4e02eb08f37db5014446` |
-| VaultController  | `0x0299f49297d5f4649082d09c5e757f6f8db7600fe91c0f86d0eb3578e4e9abdf` |
+| LivenessRegistry | `0x068bd90fbcc816d5c8650d913ae0e76864932cc0981993308abb4f714eb40c8c` |
+| VaultController  | `0x00bc6078749b2078604b0aa03ff05e68fa700045dd70152134cf5e8181752ac4` |
 | KeeperRegistry   | `0x002aaaf4d8371672a7432111c087eea44872d0aaa7ef05009807bdba6af07142` |
 
 Deployer: `0x38e6676c9c0e82a6cde4c7a89592d07075a8c6ff47033216caf3d988420b99b`

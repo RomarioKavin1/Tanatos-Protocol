@@ -71,12 +71,10 @@ export function CheckIn() {
 
     const load = async () => {
       try {
-        const epoch = getCurrentEpoch(intervalSeconds);
-        const nullifierHash = await computeNullifierHash(identity.nullifier, epoch);
         const [last, missed, interval] = await Promise.all([
-          getLastCheckin(provider, nullifierHash),
-          getMissedCount(provider, nullifierHash),
-          getCheckinInterval(provider, nullifierHash).catch(() => 0),
+          getLastCheckin(provider, identity.commitment),
+          getMissedCount(provider, identity.commitment),
+          getCheckinInterval(provider, identity.commitment).catch(() => 0),
         ]);
         setLastCheckin(last);
         setMissedCount(missed);
@@ -172,13 +170,14 @@ export function CheckIn() {
 
       const receipt = await submitCheckin(account as Account, {
         proof: proofCalldata,
+        identityCommitment: identity.commitment,
         nullifierHash,
         signalHash,
         root,
         epoch,
       });
 
-      setTxHash("transaction_hash" in receipt ? receipt.transaction_hash : "");
+      setTxHash(receipt.transaction_hash);
       setProofStep("done");
       setDeadline(getEpochDeadline(intervalSeconds));
       toast.success("Check-in successful! You're alive.");

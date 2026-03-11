@@ -5,7 +5,11 @@
  *   - Depth 20
  *   - Empty leaf = 0n
  *   - hash_pair(left, right) = Poseidon2([left, right])
- *   - All-zero siblings for an empty tree
+ *
+ * Uses sparse tree optimisation: precompute the 20 "empty subtree" hashes
+ * (hash of an all-zero subtree at each depth level), then only hash the
+ * O(depth) nodes that are actually on the path. Reduces cost from O(2^depth)
+ * to O(depth) — i.e. 40 hashes instead of 2 million.
  */
 
 import { poseidon2Hash, fitsInFelt252 } from "./identity";
@@ -14,33 +18,18 @@ export const TREE_DEPTH = 20;
 export const EMPTY_LEAF = 0n;
 
 /**
- * Compute the Merkle root for a single-user tree (leaf at index 0).
- * All other leaves are EMPTY_LEAF = 0n.
- * Works for the single-user MVP; supports multi-user via leaves array.
+ * Precompute empty subtree hashes for all depths.
+ *   emptyHashes[0] = 0n                          (empty leaf)
+ *   emptyHashes[1] = Poseidon2([0, 0])           (parent of two empty leaves)
+ *   emptyHashes[d] = Poseidon2([emptyHashes[d-1], emptyHashes[d-1]])
  */
-export async function computeMerkleRoot(
-  leaves: bigint[],
-  depth: number = TREE_DEPTH
-): Promise<bigint> {
-  // Build tree bottom-up
-  const size = 1 << depth; // 2^depth
-  const nodes = new Array(size).fill(EMPTY_LEAF);
-  for (let i = 0; i < leaves.length; i++) {
-    nodes[i] = leaves[i];
+async function buildEmptyHashes(depth: number): Promise<bigint[]> {
+  const emptyHashes: bigint[] = [EMPTY_LEAF];
+  for (let d = 0; d < depth; d++) {
+    const h = await poseidon2Hash([emptyHashes[d], emptyHashes[d]]);
+    emptyHashes.push(h);
   }
-
-  let levelNodes = [...nodes];
-  for (let level = 0; level < depth; level++) {
-    const nextLevel: bigint[] = [];
-    for (let i = 0; i < levelNodes.length; i += 2) {
-      const left = levelNodes[i];
-      const right = i + 1 < levelNodes.length ? levelNodes[i + 1] : EMPTY_LEAF;
-      const parent = await poseidon2Hash([left, right]);
-      nextLevel.push(parent);
-    }
-    levelNodes = nextLevel;
-  }
-  return levelNodes[0];
+  return emptyHashes;
 }
 
 /**
@@ -48,46 +37,75 @@ export async function computeMerkleRoot(
  * Returns the data needed by the Noir circuit:
  *   - path: sibling hashes at each level
  *   - indices: 0 = current is left child, 1 = current is right child
+ *   - root: the Merkle root
+ *
+ * Sparse tree: O(depth) hashes, not O(2^depth).
  */
 export async function computeMerklePath(
   leaves: bigint[],
   leafIndex: number,
   depth: number = TREE_DEPTH
 ): Promise<{ path: bigint[]; indices: number[]; root: bigint }> {
-  const size = 1 << depth;
-  const nodes = new Array(size).fill(EMPTY_LEAF);
-  for (let i = 0; i < leaves.length; i++) {
-    nodes[i] = leaves[i];
-  }
+  // Precompute empty subtree hashes: 20 async calls
+  const emptyHashes = await buildEmptyHashes(depth);
 
-  // Build all levels
-  const tree: bigint[][] = [nodes];
-  let levelNodes = [...nodes];
-  for (let level = 0; level < depth; level++) {
-    const nextLevel: bigint[] = [];
-    for (let i = 0; i < levelNodes.length; i += 2) {
-      const left = levelNodes[i];
-      const right = i + 1 < levelNodes.length ? levelNodes[i + 1] : EMPTY_LEAF;
-      nextLevel.push(await poseidon2Hash([left, right]));
+  // Build a map of non-empty nodes at the leaf level only.
+  // Key: leaf index, Value: leaf hash.
+  let levelMap = new Map<number, bigint>();
+  for (let i = 0; i < leaves.length; i++) {
+    if (leaves[i] !== EMPTY_LEAF) {
+      levelMap.set(i, leaves[i]);
     }
-    tree.push(nextLevel);
-    levelNodes = nextLevel;
   }
 
   const path: bigint[] = [];
   const indices: number[] = [];
   let idx = leafIndex;
+
   for (let level = 0; level < depth; level++) {
     const isRight = idx % 2 === 1;
-    indices.push(isRight ? 1 : 0);
     const siblingIdx = isRight ? idx - 1 : idx + 1;
-    const sibling = tree[level][siblingIdx] ?? EMPTY_LEAF;
+
+    // Sibling: use actual value if non-empty, else empty subtree hash at this depth
+    const sibling = levelMap.get(siblingIdx) ?? emptyHashes[level];
+
+    indices.push(isRight ? 1 : 0);
     path.push(sibling);
+
+    // Compute the next level map (only nodes that have at least one non-empty child)
+    const nextLevelMap = new Map<number, bigint>();
+    const processedParents = new Set<number>();
+
+    for (const [nodeIdx] of levelMap) {
+      const parentIdx = Math.floor(nodeIdx / 2);
+      if (processedParents.has(parentIdx)) continue;
+      processedParents.add(parentIdx);
+
+      const leftIdx = parentIdx * 2;
+      const rightIdx = leftIdx + 1;
+      const left = levelMap.get(leftIdx) ?? emptyHashes[level];
+      const right = levelMap.get(rightIdx) ?? emptyHashes[level];
+      nextLevelMap.set(parentIdx, await poseidon2Hash([left, right]));
+    }
+
+    levelMap = nextLevelMap;
     idx = Math.floor(idx / 2);
   }
 
-  const root = tree[depth][0];
+  // Root is the only remaining node (or the empty root if all leaves were empty)
+  const root = levelMap.get(0) ?? emptyHashes[depth];
   return { path, indices, root };
+}
+
+/**
+ * Compute just the Merkle root (no path). Also O(depth) for sparse trees.
+ */
+export async function computeMerkleRoot(
+  leaves: bigint[],
+  depth: number = TREE_DEPTH
+): Promise<bigint> {
+  const { root } = await computeMerklePath(leaves, 0, depth);
+  return root;
 }
 
 /**

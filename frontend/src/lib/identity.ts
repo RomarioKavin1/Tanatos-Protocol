@@ -101,7 +101,7 @@ export function fitsInFelt252(n: bigint): boolean {
  * Retries until the identity_commitment fits in felt252 (Starknet storage).
  */
 export async function generateIdentity(): Promise<Identity> {
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let attempt = 0; attempt < 200; attempt++) {
     const secret = randomFieldElement();
     const nullifier = randomFieldElement();
     const commitment = await poseidon2Hash([secret, nullifier]);
@@ -109,7 +109,7 @@ export async function generateIdentity(): Promise<Identity> {
       return { secret, nullifier, commitment };
     }
   }
-  throw new Error("Failed to generate felt252-compatible identity after 20 attempts");
+  throw new Error("Failed to generate felt252-compatible identity after 200 attempts");
 }
 
 /**

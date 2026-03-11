@@ -17,8 +17,6 @@ import {
 import { ConnectWallet } from "@/components/ConnectWallet";
 import {
   loadIdentity,
-  computeNullifierHash,
-  getCurrentEpoch,
   getEpochDeadline,
   type Identity,
 } from "@/lib/identity";
@@ -40,7 +38,6 @@ interface VaultStatus {
   isActivated: boolean;
   groupRoot: string;
   deadline: number;
-  nullifierHash: bigint;
 }
 
 export default function DashboardPage() {
@@ -69,17 +66,13 @@ export default function DashboardPage() {
     setIsLoading(true);
 
     try {
-      // First try to get the actual interval from contract
-      const epoch = getCurrentEpoch(intervalSeconds);
-      const nullifierHash = await computeNullifierHash(identity.nullifier, epoch);
-
       const [lastCheckin, missedCount, activated, rootRaw, intervalResult] =
         await Promise.allSettled([
-          getLastCheckin(provider, nullifierHash),
-          getMissedCount(provider, nullifierHash),
+          getLastCheckin(provider, identity.commitment),
+          getMissedCount(provider, identity.commitment),
           isVaultActivated(provider, identity.commitment),
           getGroupRoot(provider),
-          getCheckinInterval(provider, nullifierHash),
+          getCheckinInterval(provider, identity.commitment),
         ]);
 
       // Update interval from chain if available
@@ -96,7 +89,6 @@ export default function DashboardPage() {
             ? "0x" + rootRaw.value.toString(16).padStart(64, "0")
             : "N/A",
         deadline: getEpochDeadline(intervalSeconds),
-        nullifierHash,
       });
       setLastRefresh(new Date());
     } catch (err) {
@@ -327,25 +319,13 @@ export default function DashboardPage() {
           style={{ background: "var(--card)", border: "1px solid var(--card-border)" }}
         >
           <h3 className="font-semibold mb-4">Identity Information</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs mb-1" style={{ color: "var(--muted-foreground)" }}>
-                Identity Commitment (public)
-              </p>
-              <p className="text-xs font-mono break-all opacity-70">
-                0x{identity.commitment.toString(16).padStart(64, "0")}
-              </p>
-            </div>
-            {status && (
-              <div>
-                <p className="text-xs mb-1" style={{ color: "var(--muted-foreground)" }}>
-                  Current Epoch Nullifier Hash
-                </p>
-                <p className="text-xs font-mono break-all opacity-70">
-                  0x{status.nullifierHash.toString(16).padStart(64, "0")}
-                </p>
-              </div>
-            )}
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--muted-foreground)" }}>
+              Identity Commitment (public)
+            </p>
+            <p className="text-xs font-mono break-all opacity-70">
+              0x{identity.commitment.toString(16).padStart(64, "0")}
+            </p>
           </div>
         </div>
 

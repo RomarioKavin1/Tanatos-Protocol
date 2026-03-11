@@ -9,7 +9,6 @@ import {
   cairo,
   hash,
   type Call,
-  type GetTransactionReceiptResponse,
   type ProviderInterface,
 } from "starknet";
 
@@ -30,6 +29,15 @@ export const CONTRACT_ADDRESSES = {
     "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
 } as const;
 
+/**
+ * Split a BN254 bigint (up to 256 bits) into (low: u128, high: u128).
+ * Both halves are always < 2^128, so they always fit in felt252.
+ */
+export function splitU256(n: bigint): { low: bigint; high: bigint } {
+  const MASK = (1n << 128n) - 1n;
+  return { low: n & MASK, high: n >> 128n };
+}
+
 export const LIVENESS_REGISTRY_ABI = [
   {
     type: "function",
@@ -39,7 +47,6 @@ export const LIVENESS_REGISTRY_ABI = [
       { name: "new_root", type: "core::felt252" },
       { name: "vault_commitment", type: "core::felt252" },
       { name: "interval_seconds", type: "core::integer::u64" },
-      { name: "nullifier_hash", type: "core::felt252" },
     ],
     outputs: [],
     state_mutability: "external",
@@ -49,8 +56,11 @@ export const LIVENESS_REGISTRY_ABI = [
     name: "checkin",
     inputs: [
       { name: "proof", type: "core::array::Array::<core::felt252>" },
-      { name: "nullifier_hash", type: "core::felt252" },
-      { name: "signal_hash", type: "core::felt252" },
+      { name: "identity_commitment", type: "core::felt252" },
+      { name: "nullifier_hash_low", type: "core::felt252" },
+      { name: "nullifier_hash_high", type: "core::felt252" },
+      { name: "signal_hash_low", type: "core::felt252" },
+      { name: "signal_hash_high", type: "core::felt252" },
       { name: "root", type: "core::felt252" },
       { name: "epoch", type: "core::felt252" },
     ],
@@ -60,21 +70,21 @@ export const LIVENESS_REGISTRY_ABI = [
   {
     type: "function",
     name: "report_missed",
-    inputs: [{ name: "nullifier_hash", type: "core::felt252" }],
+    inputs: [{ name: "identity_commitment", type: "core::felt252" }],
     outputs: [],
     state_mutability: "external",
   },
   {
     type: "function",
     name: "get_last_checkin",
-    inputs: [{ name: "nullifier_hash", type: "core::felt252" }],
+    inputs: [{ name: "identity_commitment", type: "core::felt252" }],
     outputs: [{ type: "core::integer::u64" }],
     state_mutability: "view",
   },
   {
     type: "function",
     name: "get_missed_count",
-    inputs: [{ name: "nullifier_hash", type: "core::felt252" }],
+    inputs: [{ name: "identity_commitment", type: "core::felt252" }],
     outputs: [{ type: "core::integer::u32" }],
     state_mutability: "view",
   },
@@ -88,14 +98,14 @@ export const LIVENESS_REGISTRY_ABI = [
   {
     type: "function",
     name: "get_vault_commitment",
-    inputs: [{ name: "nullifier_hash", type: "core::felt252" }],
+    inputs: [{ name: "identity_commitment", type: "core::felt252" }],
     outputs: [{ type: "core::felt252" }],
     state_mutability: "view",
   },
   {
     type: "function",
     name: "get_checkin_interval",
-    inputs: [{ name: "nullifier_hash", type: "core::felt252" }],
+    inputs: [{ name: "identity_commitment", type: "core::felt252" }],
     outputs: [{ type: "core::integer::u64" }],
     state_mutability: "view",
   },
@@ -188,6 +198,7 @@ export function getVaultController(provider: Provider): Contract {
 /**
  * Register a new identity. The caller must supply the new Merkle root
  * computed off-chain using BN254 Poseidon2 (matching the Noir circuit).
+ * Returns the tx hash immediately without waiting for finality.
  */
 export async function registerVault(
   account: Account,
@@ -196,9 +207,8 @@ export async function registerVault(
     newRoot: bigint;
     vaultCommitment: bigint;
     intervalSeconds: number;
-    nullifierHash: bigint;
   }
-): Promise<GetTransactionReceiptResponse> {
+): Promise<{ transaction_hash: string }> {
   const call: Call = {
     contractAddress: CONTRACT_ADDRESSES.LIVENESS_REGISTRY,
     entrypoint: "register",
@@ -207,36 +217,39 @@ export async function registerVault(
       new_root: "0x" + params.newRoot.toString(16),
       vault_commitment: "0x" + params.vaultCommitment.toString(16),
       interval_seconds: params.intervalSeconds,
-      nullifier_hash: "0x" + params.nullifierHash.toString(16),
     }),
   };
-  const tx = await account.execute(call);
-  return account.waitForTransaction(tx.transaction_hash);
+  return account.execute(call);
 }
 
 export async function submitCheckin(
   account: Account,
   params: {
     proof: string[];
+    identityCommitment: bigint;
     nullifierHash: bigint;
     signalHash: bigint;
     root: bigint;
     epoch: bigint;
   }
-): Promise<GetTransactionReceiptResponse> {
+): Promise<{ transaction_hash: string }> {
+  const nh = splitU256(params.nullifierHash);
+  const sh = splitU256(params.signalHash);
   const call: Call = {
     contractAddress: CONTRACT_ADDRESSES.LIVENESS_REGISTRY,
     entrypoint: "checkin",
     calldata: CallData.compile({
       proof: params.proof,
-      nullifier_hash: "0x" + params.nullifierHash.toString(16),
-      signal_hash: "0x" + params.signalHash.toString(16),
+      identity_commitment: "0x" + params.identityCommitment.toString(16),
+      nullifier_hash_low: "0x" + nh.low.toString(16),
+      nullifier_hash_high: "0x" + nh.high.toString(16),
+      signal_hash_low: "0x" + sh.low.toString(16),
+      signal_hash_high: "0x" + sh.high.toString(16),
       root: "0x" + params.root.toString(16),
       epoch: "0x" + params.epoch.toString(16),
     }),
   };
-  const tx = await account.execute(call);
-  return account.waitForTransaction(tx.transaction_hash);
+  return account.execute(call);
 }
 
 export async function depositToVault(
@@ -247,7 +260,7 @@ export async function depositToVault(
     token: string;
     amount: bigint;
   }
-): Promise<GetTransactionReceiptResponse> {
+): Promise<{ transaction_hash: string }> {
   const approveCall: Call = {
     contractAddress: params.token,
     entrypoint: "approve",
@@ -268,8 +281,7 @@ export async function depositToVault(
       amount: cairo.uint256(params.amount),
     }),
   };
-  const tx = await account.execute([approveCall, depositCall]);
-  return account.waitForTransaction(tx.transaction_hash);
+  return account.execute([approveCall, depositCall]);
 }
 
 export async function claimVault(
@@ -279,7 +291,7 @@ export async function claimVault(
     claimProof: string[];
     recipient: string;
   }
-): Promise<GetTransactionReceiptResponse> {
+): Promise<{ transaction_hash: string }> {
   const call: Call = {
     contractAddress: CONTRACT_ADDRESSES.VAULT_CONTROLLER,
     entrypoint: "claim",
@@ -289,8 +301,7 @@ export async function claimVault(
       recipient: params.recipient,
     }),
   };
-  const tx = await account.execute(call);
-  return account.waitForTransaction(tx.transaction_hash);
+  return account.execute(call);
 }
 
 export async function getGroupRoot(provider: Provider): Promise<bigint> {
@@ -301,33 +312,33 @@ export async function getGroupRoot(provider: Provider): Promise<bigint> {
 
 export async function getLastCheckin(
   provider: Provider,
-  nullifierHash: bigint
+  identityCommitment: bigint
 ): Promise<number> {
   const contract = getRegistryContract(provider);
   const result = await contract.call("get_last_checkin", [
-    "0x" + nullifierHash.toString(16),
+    "0x" + identityCommitment.toString(16),
   ]);
   return Number(result);
 }
 
 export async function getMissedCount(
   provider: Provider,
-  nullifierHash: bigint
+  identityCommitment: bigint
 ): Promise<number> {
   const contract = getRegistryContract(provider);
   const result = await contract.call("get_missed_count", [
-    "0x" + nullifierHash.toString(16),
+    "0x" + identityCommitment.toString(16),
   ]);
   return Number(result);
 }
 
 export async function getCheckinInterval(
   provider: Provider,
-  nullifierHash: bigint
+  identityCommitment: bigint
 ): Promise<number> {
   const contract = getRegistryContract(provider);
   const result = await contract.call("get_checkin_interval", [
-    "0x" + nullifierHash.toString(16),
+    "0x" + identityCommitment.toString(16),
   ]);
   return Number(result);
 }

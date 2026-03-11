@@ -18,8 +18,7 @@ import {
   generateIdentity,
   storeIdentity,
   exportIdentityBackup,
-  computeNullifierHash,
-  getCurrentEpoch,
+  fitsInFelt252,
   type Identity,
 } from "@/lib/identity";
 import {
@@ -61,6 +60,7 @@ export function VaultSetup() {
   // Step 1 state
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [identityBackedUp, setIdentityBackedUp] = useState(false);
+  const [precomputedRoot, setPrecomputedRoot] = useState<bigint | null>(null);
 
   // Step 2 state
   const [selectedInterval, setSelectedInterval] = useState(INTERVAL_OPTIONS[2]); // monthly default
@@ -80,10 +80,29 @@ export function VaultSetup() {
   const handleGenerateIdentity = async () => {
     setIsLoading(true);
     try {
-      const id = await generateIdentity();
+      // nullifier_hash/signal_hash no longer need to fit in felt252 (passed split as u128 pairs).
+      // But new_root IS stored as felt252 on-chain, so retry until it fits (~83.5% chance per attempt).
+      const { computeMerklePath } = await import("@/lib/merkle");
+
+      let id: Identity | null = null;
+      let root: bigint | null = null;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const candidate = await generateIdentity();
+        const { root: candidateRoot } = await computeMerklePath([candidate.commitment], 0);
+        if (fitsInFelt252(candidateRoot)) {
+          id = candidate;
+          root = candidateRoot;
+          break;
+        }
+      }
+      if (!id || !root) {
+        throw new Error("Could not generate a valid identity. Please try again.");
+      }
+
       setIdentity(id);
+      setPrecomputedRoot(root);
       storeIdentity(id);
-      toast.success("Identity generated and saved locally.");
+      toast.success("Identity generated successfully.");
     } catch (err) {
       toast.error("Failed to generate identity.");
       console.error(err);
@@ -147,47 +166,57 @@ export function VaultSetup() {
       salt,
     ];
 
-    const epoch = getCurrentEpoch(intervalSeconds);
-    const nullifierHash = await computeNullifierHash(identity.nullifier, epoch);
     const amountWei = BigInt(Math.floor(amount * 1e18));
+
+    // Use precomputed root from identity generation.
+    // Fall back to recomputing only if state was lost (e.g. page refresh).
+    let newRoot = precomputedRoot;
 
     setIsLoading(true);
     try {
-      // Compute the new Merkle root (BN254 Poseidon2, matches Noir circuit)
-      toast.loading("Computing Merkle root...", { id: "deploy" });
-      const { computeMerklePath } = await import("@/lib/merkle");
-      const { root: newRoot } = await computeMerklePath(
-        [identity.commitment],
-        0
-      );
+      if (!newRoot) {
+        toast.loading("Computing Merkle root...", { id: "deploy" });
+        const { computeMerklePath } = await import("@/lib/merkle");
+        const result = await computeMerklePath([identity.commitment], 0);
+        newRoot = result.root;
+        if (!fitsInFelt252(newRoot)) {
+          toast.error(
+            "Merkle root overflows felt252. Please go back to Step 1 and generate a new identity.",
+            { id: "deploy", duration: 8000 }
+          );
+          return;
+        }
+      }
 
       // 1. Register identity on-chain with the correct Merkle root
       toast.loading("Registering identity on Starknet...", { id: "deploy" });
-      await registerVault(account as Account, {
+      const registerTx = await registerVault(account as Account, {
         identityCommitment: identity.commitment,
-        newRoot,
+        newRoot: newRoot!,
         vaultCommitment,
         intervalSeconds,
-        nullifierHash,
       });
+      toast.loading(`Register tx submitted (${registerTx.transaction_hash.slice(0, 10)}...) — depositing...`, { id: "deploy" });
 
       // 2. Deposit tokens
-      toast.loading("Depositing tokens to vault...", { id: "deploy" });
-      await depositToVault(account as Account, {
+      const depositTx = await depositToVault(account as Account, {
         vaultCommitment,
         encryptedBeneficiary,
         token: tokenAddress,
         amount: amountWei,
       });
 
-      // 3. Save salt to localStorage so we can show the beneficiary what to use
+      // 3. Save vault data to localStorage
       localStorage.setItem(
         "thanatos_vault_salt",
         "0x" + salt.toString(16).padStart(62, "0")
       );
       localStorage.setItem("thanatos_vault_commitment", "0x" + vaultCommitment.toString(16));
 
-      toast.success("Vault deployed successfully!", { id: "deploy" });
+      toast.success(
+        `Vault deployed! Register: ${registerTx.transaction_hash.slice(0, 10)}... Deposit: ${depositTx.transaction_hash.slice(0, 10)}...`,
+        { id: "deploy", duration: 10000 }
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
       toast.error(`Deployment failed: ${msg}`, { id: "deploy" });
