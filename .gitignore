@@ -10,6 +10,7 @@ dist/
 # Cairo / Scarb
 target/
 .scarb/
+.secrets
 
 # Noir / Nargo
 circuits/*/target/
