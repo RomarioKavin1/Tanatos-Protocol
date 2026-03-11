@@ -74,6 +74,13 @@ pub trait IVaultController<TContractState> {
     fn get_encrypted_beneficiary(
         self: @TContractState, vault_commitment: felt252
     ) -> Array<felt252>;
+
+    /// One-time initializer: set the LivenessRegistry address after deployment.
+    /// Can only be called by the owner when liveness_registry is not yet set.
+    fn set_registry(ref self: TContractState, registry: ContractAddress);
+
+    /// Returns the configured LivenessRegistry address.
+    fn get_registry(self: @TContractState) -> ContractAddress;
 }
 
 /// Interface for the KeeperRegistry contract.

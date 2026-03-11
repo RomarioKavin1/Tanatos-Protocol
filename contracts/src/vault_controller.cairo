@@ -213,5 +213,25 @@ pub mod VaultController {
             };
             result
         }
+
+        /// One-time initializer: set the LivenessRegistry address after it has been deployed.
+        /// Can only be called by the owner, and only when the registry has not yet been set
+        /// (i.e. still at the zero address from construction). This solves the circular
+        /// deployment dependency: VaultController → LivenessRegistry → VaultController.
+        fn set_registry(ref self: ContractState, registry: ContractAddress) {
+            let caller = get_caller_address();
+            assert(caller == self.owner.read(), Errors::NOT_AUTHORIZED);
+
+            // Ensure this is a one-time operation — prevent owner from later redirecting
+            // activate() calls to a malicious registry.
+            let zero: ContractAddress = 0.try_into().unwrap();
+            assert(self.liveness_registry.read() == zero, 'Registry already set');
+
+            self.liveness_registry.write(registry);
+        }
+
+        fn get_registry(self: @ContractState) -> ContractAddress {
+            self.liveness_registry.read()
+        }
     }
 }
