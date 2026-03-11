@@ -174,7 +174,7 @@ export function BeneficiaryClaim() {
             <button
               onClick={handleSearch}
               className="w-full py-3 rounded-none font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90"
-              style={{ background: "var(--secondary)", color: "white" }}
+              style={{ background: "var(--secondary)", color: "var(--background)" }}
             >
               <Search className="w-4 h-4" />
               Look Up Vault
@@ -294,7 +294,7 @@ export function BeneficiaryClaim() {
             <button
               onClick={handleClaim}
               disabled={!account || !claimKeyInput || !isValidAddress(recipient)}
-              className="w-full py-4 rounded-none font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40"
+              className="w-full py-4 rounded-none font-bold text-background flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-40"
               style={{ background: "var(--success)" }}
             >
               {!account ? "Connect Wallet First" : (

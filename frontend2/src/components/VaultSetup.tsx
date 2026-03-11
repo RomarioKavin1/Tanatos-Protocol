@@ -285,7 +285,7 @@ export function VaultSetup() {
                 <button
                   onClick={handleGenerateIdentity}
                   disabled={isLoading}
-                  className="w-full py-4 rounded-none font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-none font-semibold text-background transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                   style={{ background: "var(--primary)" }}
                 >
                   <Key className="w-5 h-5" />
@@ -489,7 +489,7 @@ export function VaultSetup() {
               <button
                 onClick={handleDeploy}
                 disabled={isLoading || !account}
-                className="w-full py-4 rounded-none font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                className="w-full py-4 rounded-none font-bold text-background transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ background: "var(--primary)" }}
               >
                 {isLoading
@@ -518,7 +518,7 @@ export function VaultSetup() {
           <button
             onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}
             disabled={!canProceed()}
-            className="px-6 py-3 rounded-none font-semibold text-white flex items-center gap-2 transition-all hover:opacity-90 disabled:opacity-40"
+            className="px-6 py-3 rounded-none font-semibold text-background flex items-center gap-2 transition-all hover:opacity-90 disabled:opacity-40"
             style={{ background: "var(--primary)" }}
           >
             Continue

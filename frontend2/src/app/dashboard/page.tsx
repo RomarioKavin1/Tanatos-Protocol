@@ -143,7 +143,7 @@ export default function DashboardPage() {
           </p>
           <Link
             href="/setup"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-none font-semibold text-white"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-none font-semibold text-background"
             style={{ background: "var(--primary)" }}
           >
             Setup Your Vault
@@ -384,7 +384,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row gap-4">
           <Link
             href="/checkin"
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-none font-bold text-white transition-all hover:opacity-90"
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-none font-bold text-background transition-all hover:opacity-90"
             style={{ background: "var(--primary)" }}
           >
             <Zap className="w-5 h-5" />

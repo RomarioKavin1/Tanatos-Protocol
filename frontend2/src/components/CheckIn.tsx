@@ -357,7 +357,7 @@ export function CheckIn() {
         <button
           onClick={handleCheckin}
           disabled={isProving || proofStep === "done"}
-          className="w-full py-4 rounded-none font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
+          className="w-full py-4 rounded-none font-bold text-background flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
           style={{ background: "var(--primary)" }}
         >
           {isProving ? (
