@@ -112,3 +112,31 @@ NEXT_PUBLIC_KEEPER_REGISTRY_ADDRESS=0x...
 - starknet.js: ^6.18.0
 - @starknet-react/core: ^3.7.2
 - Next.js: 15.2.2
+
+## Deployed Contracts (Starknet Sepolia — March 2026)
+
+| Contract | Address |
+|----------|---------|
+| LivenessRegistry | `0x0793e0b1466724bcb1a2685b2f7e2a30030d0dd9d08a4e02eb08f37db5014446` |
+| VaultController  | `0x0299f49297d5f4649082d09c5e757f6f8db7600fe91c0f86d0eb3578e4e9abdf` |
+| KeeperRegistry   | `0x002aaaf4d8371672a7432111c087eea44872d0aaa7ef05009807bdba6af07142` |
+
+Deployer: `0x38e6676c9c0e82a6cde4c7a89592d07075a8c6ff47033216caf3d988420b99b`
+
+RPC: `https://rpc.starknet-testnet.lava.build`
+
+Verify on Starkscan:
+- https://sepolia.starkscan.co/contract/0x0793e0b1466724bcb1a2685b2f7e2a30030d0dd9d08a4e02eb08f37db5014446
+- https://sepolia.starkscan.co/contract/0x0299f49297d5f4649082d09c5e757f6f8db7600fe91c0f86d0eb3578e4e9abdf
+- https://sepolia.starkscan.co/contract/0x002aaaf4d8371672a7432111c087eea44872d0aaa7ef05009807bdba6af07142
+
+### Declaration tx hashes
+- KeeperRegistry:   `0x0308ee519111fffa1fee101ea3b8bc86e0232445968a0fdeefff65342ccda397`
+- VaultController:  `0x07ce9cf03b838be7dca1c5b37e9ac6f026de4a2affaeda95c6e8778c388e142c`
+- LivenessRegistry: `0x052c44ab9c43c27fcea838b5d055de45863a3bc65b7016d121cc4119272fed35`
+
+### Deployment tx hashes
+- KeeperRegistry:   `0x029e4f0e939a34a4576591556e43d8320c6a40e7d8501defe071bae442ffea6d`
+- VaultController:  `0x058074496968cc040b26acdabc80ebb7fb7d5793411cc4ba14d9585e2201167a`
+- LivenessRegistry: `0x02c239cacef49f41aaf6fa306f691af978a6b351a0dbe3ee4c40ba413469622b`
+- set_registry():   `0x06b56585d517ee66918a95729e79b00ef80eac6f40391ad9d749f847ec6daaf8`
