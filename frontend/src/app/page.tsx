@@ -2,83 +2,60 @@
 
 import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
-import {
-  Shield,
-  Clock,
-  Key,
-  Zap,
-  Lock,
-  Eye,
-  ArrowRight,
-  Github,
-  ChevronRight,
-} from "lucide-react";
+import { ArrowRight, Github, Code, ArrowUpRight } from "lucide-react";
 import { ConnectWallet } from "@/components/ConnectWallet";
 
 const features = [
   {
-    icon: Shield,
-    title: "Zero-Knowledge Liveness",
+    title: "Elysian Privacy",
     description:
-      "Prove you're alive without revealing your identity. Semaphore-based ZK proofs keep your check-ins completely private.",
+      "Cairo-native Semaphore ZK proofs. Check-ins are cryptographically unlinkable — no wallet address on-chain, no correlation possible across epochs.",
   },
   {
-    icon: Clock,
-    title: "Configurable Switch",
+    title: "The River Styx",
     description:
-      "Set your own check-in interval. Miss N consecutive intervals and your vault activates automatically.",
+      "Funds flow through Cairo smart contracts on Starknet. Beneficiary identity is sealed under a Poseidon commitment until the moment of claim.",
   },
   {
-    icon: Key,
-    title: "Private Beneficiary",
+    title: "Hypnos' Threshold",
     description:
-      "Your beneficiary's identity is encrypted on-chain. Only they can claim using the secret you shared off-chain.",
+      "Epoch-bound nullifiers prevent replay. Each check-in period is cryptographically unique. Three misses triggers irreversible vault activation.",
   },
   {
-    icon: Zap,
-    title: "Keeper Network",
+    title: "Obol Distribution",
     description:
-      "Staked keepers monitor deadlines and earn rewards for reporting missed check-ins. Fully decentralized automation.",
-  },
-  {
-    icon: Lock,
-    title: "Non-Custodial",
-    description:
-      "Funds stay in smart contracts. No intermediaries. No counterparty risk. Your keys, your crypto, your rules.",
-  },
-  {
-    icon: Eye,
-    title: "Starknet Native",
-    description:
-      "Built on Starknet for cheap ZK proof verification, fast finality, and native Cairo contract composability.",
+      "A Noir circuit, compiled to UltraHonk and verified on-chain by Garaga. Every proof is verified by the chain itself. No oracle. No trust.",
   },
 ];
 
 const steps = [
   {
-    step: "01",
-    title: "Generate Identity",
-    description:
-      "Create a Semaphore identity securely in your browser. This forms your private proof key.",
+    step: "[01]",
+    title: "SEVERANCE.",
+    description: "Generate a Semaphore identity in your browser. The commitment is public; the secret never leaves your device.",
   },
   {
-    step: "02",
-    title: "Configure Vault",
-    description:
-      "Set your check-in interval, deposit assets, and lock your beneficiary's encrypted claim key.",
+    step: "[02]",
+    title: "PACT.",
+    description: "Deposit assets into your Cairo vault. The beneficiary address is sealed under a Poseidon hash — invisible on-chain until claim.",
   },
   {
-    step: "03",
-    title: "Check In Privately",
-    description:
-      "Generate a ZK proof locally to prove you're alive, submitted entirely on-chain for privacy.",
+    step: "[03]",
+    title: "PULSE.",
+    description: "Prove you exist with a Noir ZK proof. Barretenberg generates it in-browser; Garaga's Cairo verifier confirms it on Starknet.",
   },
   {
-    step: "04",
-    title: "Automatic Inheritance",
-    description:
-      "Miss the threshold, and your vault unlocks. Your beneficiary claims using their private key.",
+    step: "[04]",
+    title: "SILENCE.",
+    description: "When the proofs stop, the vault unlocks. Cairo enforces the transfer. No lawyers. No multisig. No human in the loop.",
   },
+];
+
+const stack = [
+  { label: "SEMAPHORE", sub: "Cairo-native group membership" },
+  { label: "NOIR", sub: "Client-side ZK circuit" },
+  { label: "GARAGA", sub: "On-chain UltraHonk verifier" },
+  { label: "STARKNET", sub: "Cairo smart contracts" },
 ];
 
 export default function HomePage() {
@@ -87,267 +64,317 @@ export default function HomePage() {
   const heroY = useTransform(scrollYProgress, [0, 0.2], [0, 50]);
 
   return (
-    <div className="min-h-screen relative overflow-hidden text-[#fcfcfc]">
-      {/* Dynamic Background Effects */}
-      <div className="bg-ambient-glow" />
-      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
+    <div className="min-h-screen relative text-foreground font-sans selection:bg-foreground selection:text-background">
+      {/* Noise Overlay */}
+      <div className="bg-noise" />
 
       {/* Navigation */}
-      <motion.nav
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 glass-panel border-b border-t-0 border-l-0 border-r-0 rounded-none"
-      >
-        <div className="flex items-center gap-3 group cursor-pointer">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/30 group-hover:border-primary/60 transition-colors">
-            <Shield className="w-5 h-5 text-primary group-hover:text-red-400 transition-colors" />
-            <div className="absolute inset-0 bg-primary/20 blur-md rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-          <span className="font-extrabold text-xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-neutral-400">
-            Thanatos
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-sm border-b border-card-border">
+        <div className="flex items-center gap-2 group cursor-pointer">
+          <span className="font-extrabold text-2xl tracking-tighter uppercase">
+            THANATOS.
+          </span>
+          <span className="text-xs font-mono text-muted-foreground ml-2 hidden sm:block">
+            [ZK INHERITANCE PROTOCOL]
           </span>
         </div>
-        <div className="hidden md:flex items-center space-x-1 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-          {["Dashboard", "Setup Vault", "Claim"].map((item) => {
-            const path = item === "Setup Vault" ? "/setup" : `/${item.toLowerCase()}`;
-            return (
+
+        <div className="hidden md:flex flex-1 justify-center">
+          <div className="flex items-center space-x-8 text-xs font-bold uppercase tracking-widest">
+            {["Dashboard", "Setup", "Claim"].map((item) => (
               <Link
                 key={item}
-                href={path}
-                className="px-4 py-2 text-sm font-medium text-neutral-400 hover:text-white rounded-xl hover:bg-white/10 transition-all duration-300 relative group"
+                href={`/${item.toLowerCase()}`}
+                className="text-muted-foreground hover:text-foreground transition-colors py-2 relative group"
               >
                 {item}
-                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-all" />
+                <span className="absolute bottom-0 left-0 w-full h-[1px] bg-foreground origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
               </Link>
-            );
-          })}
+            ))}
+          </div>
         </div>
+
         <div className="flex items-center gap-4">
           <a
-            href="https://github.com/thanatos-protocol"
+            href="https://github.com/RomarioKavin1/Tanatos-Protocol"
             target="_blank"
             rel="noreferrer"
-            className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white text-neutral-400 transition-all"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Github className="w-4 h-4" />
+            <Github className="w-5 h-5" />
           </a>
           <ConnectWallet />
         </div>
-      </motion.nav>
+      </nav>
 
       {/* Hero Section */}
       <motion.section
         style={{ opacity: heroOpacity, y: heroY }}
-        className="relative flex flex-col items-center justify-center min-h-screen text-center px-6 pt-24 pb-12"
+        className="relative flex flex-col justify-center min-h-screen px-6 pt-32 pb-12"
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
-          className="max-w-4xl mx-auto flex flex-col items-center z-10"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-8 bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 backdrop-blur-sm text-red-300/90 shadow-[0_0_15px_rgba(225,29,72,0.15)]">
-            <Zap className="w-3.5 h-3.5 text-primary animate-pulse" />
-            Built on Starknet &bull; ZK-Powered &bull; Fully Private
+        <div className="w-full h-full flex flex-col justify-between max-w-7xl mx-auto">
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-end mb-24">
+            <div className="md:col-span-8">
+              <h1 className="text-6xl md:text-[7rem] font-bold tracking-tighter leading-[0.9] uppercase">
+                Zero<br />
+                Knowledge<br />
+                Legacy.
+              </h1>
+            </div>
+            <div className="md:col-span-4 pb-4 flex flex-col items-start gap-6">
+              <div className="w-12 h-[1px] bg-foreground" />
+              <p className="text-xs font-mono text-muted-foreground uppercase leading-relaxed max-w-xs">
+                A trustless dead man's switch.
+                Prove liveness cryptographically.
+                Pass on assets silently.
+              </p>
+            </div>
           </div>
 
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-8 leading-[1.1]">
-            Your legacy. <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-br from-primary via-red-500 to-orange-400 drop-shadow-sm">
-              Your control.
-            </span>
-            <br />
-            No one else.
-          </h1>
+          {/* Brutalist Abstract Hero Imagery */}
+          <div className="w-full relative h-[40vh] md:h-[50vh] bg-card overflow-hidden border border-card-border flex items-center justify-center group cursor-pointer">
+            <div className="absolute inset-0 bg-noise opacity-10 mix-blend-overlay pointer-events-none" />
 
-          <p className="text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed text-neutral-400 font-medium">
-            Thanatos Protocol is a zero-knowledge dead man&apos;s switch for private crypto
-            inheritance. Prove you&apos;re alive with ZK proofs. Disappear, and your vault
-            automatically unlocks for your chosen beneficiary.
-          </p>
+            {/* Glitching/Offset Geometry representing "Severance" */}
+            <div className="relative w-full h-full flex items-center justify-center perspective-[1000px]">
 
-          <div className="flex flex-col sm:flex-row gap-5 justify-center w-full max-w-md sm:max-w-none">
-            <Link href="/setup">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-bold text-white bg-gradient-to-r from-primary to-rose-600 shadow-[0_0_40px_rgba(225,29,72,0.4)] overflow-hidden transition-all hover:shadow-[0_0_60px_rgba(225,29,72,0.6)]"
+              {/* Back Layer - Ghosted/Echo */}
+              <motion.div
+                initial={{ rotateX: 20, rotateY: -10, scale: 0.9, opacity: 0 }}
+                animate={{ rotateX: 0, rotateY: 0, scale: 1, opacity: 0.2 }}
+                transition={{ duration: 2, ease: "easeOut", delay: 0.2 }}
+                className="absolute w-48 h-64 md:w-64 md:h-80 border-2 border-foreground bg-transparent -ml-16 -mt-8"
+              />
+
+              {/* Middle Layer - Solid Void */}
+              <motion.div
+                initial={{ rotateX: -10, rotateY: 20, y: 50, opacity: 0 }}
+                animate={{ rotateX: 0, rotateY: 0, y: 0, opacity: 1 }}
+                transition={{ duration: 1.5, ease: "easeOut" }}
+                className="absolute w-48 h-64 md:w-64 md:h-80 bg-foreground border border-foreground flex items-center justify-center shadow-2xl z-10 overflow-hidden"
               >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-                <span className="relative z-10">Setup Your Vault</span>
-                <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-              </motion.button>
-            </Link>
-            <Link href="/claim">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-bold bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-neutral-200"
-              >
-                Claim as Beneficiary
-              </motion.button>
-            </Link>
+                {/* Slanted Cut / Severance Line */}
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "200%" }}
+                  transition={{ duration: 3, ease: "easeInOut", repeat: Infinity, repeatDelay: 5 }}
+                  className="absolute w-1 h-[150%] bg-background rotate-45"
+                />
+              </motion.div>
+
+              {/* Front Layer - Glitch Frame */}
+              <motion.div
+                initial={{ scale: 1.1, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 1, ease: "easeIn", delay: 0.5 }}
+                className="absolute w-48 h-64 md:w-64 md:h-80 border-2 border-background mix-blend-difference ml-12 mt-12 z-20"
+              />
+
+              {/* Floating Debris/Fragments */}
+              <motion.div
+                animate={{ y: [-10, 10, -10], rotate: [0, 90, 0] }}
+                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                className="absolute w-8 h-8 bg-foreground/50 border border-foreground right-[15%] top-[20%]"
+              />
+              <motion.div
+                animate={{ y: [15, -15, 15], rotate: [45, -45, 45] }}
+                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                className="absolute w-12 h-12 bg-transparent border-2 border-foreground/30 left-[20%] bottom-[25%]"
+              />
+            </div>
+
+            {/* Technical Identifier */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, delay: 1 }}
+              className="absolute bottom-6 right-6 flex flex-col items-end"
+            >
+              <span className="text-xs font-mono font-bold tracking-widest text-foreground uppercase mix-blend-difference">
+                PROTOCOL.SEVERANCE // TRUTH
+              </span>
+              <span className="text-[10px] font-mono tracking-widest text-muted-foreground uppercase">
+                ZKP_STATE: UNKNOWN
+              </span>
+            </motion.div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-          animate={{ y: [0, 8, 0], opacity: [0.5, 1, 0.5] }}
-          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-        >
-          <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">Scroll</span>
-          <div className="w-5 h-8 rounded-full border border-neutral-600 flex items-start justify-center p-1">
-            <div className="w-1 h-2 rounded-full bg-primary" />
-          </div>
-        </motion.div>
+        <div className="absolute bottom-10 left-6 flex items-center gap-4 text-xs font-mono uppercase text-muted-foreground">
+          <motion.div
+            animate={{ x: [0, 10, 0] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          >
+            <ArrowRight className="w-4 h-4" />
+          </motion.div>
+          <span>Scroll to uncover</span>
+        </div>
       </motion.section>
 
-      {/* How It Works */}
-      <section className="py-32 px-6 relative z-10">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            className="text-center mb-20"
-          >
-            <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">
-              Trustless Execution
+      {/* Ticker Tape */}
+      <div className="w-full bg-foreground text-background py-3 overflow-hidden border-y border-foreground flex relative">
+        <motion.div
+          animate={{ x: [0, -1035] }}
+          transition={{ ease: "linear", duration: 15, repeat: Infinity }}
+          className="flex whitespace-nowrap gap-12 text-sm font-bold tracking-[0.2em] uppercase items-center"
+        >
+          {Array(10).fill(0).map((_, i) => (
+            <span key={i} className="flex items-center gap-12">
+              <span>MEMENTO MORI</span>
+              <span className="w-1.5 h-1.5 bg-background rounded-full" />
+              <span>TRUSTLESS EXECUTION</span>
+              <span className="w-1.5 h-1.5 bg-background rounded-full" />
+            </span>
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Statement Section */}
+      <section className="py-24 px-6 border-t border-card-border bg-card relative overflow-hidden">
+        {/* Large subtle background text */}
+        <div className="absolute -top-10 -right-10 text-[15rem] md:text-[20rem] font-black text-foreground/[0.02] tracking-tighter leading-none select-none pointer-events-none z-0">
+          Θάνατος
+        </div>
+
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 relative z-10">
+          <div>
+            <span className="text-xs font-mono uppercase text-muted-foreground block mb-8">
+              [01] Immutable Wills.
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight">
+              A Trustless Dead Man's Switch.
             </h2>
-            <div className="w-24 h-1 bg-gradient-to-r from-primary to-transparent mx-auto rounded-full mb-6" />
-            <p className="text-lg text-neutral-400 max-w-2xl mx-auto">
-              Four steps separating you from autonomous, cryptographic legacy management.
+            <Link href="/setup">
+              <button className="mt-12 group flex items-center gap-4 text-xs font-mono uppercase border-b border-foreground pb-2 hover:text-muted-foreground hover:border-muted-foreground transition-all">
+                Enter The Vault
+                <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              </button>
+            </Link>
+          </div>
+          <div className="flex flex-col justify-end">
+            <p className="text-muted-foreground text-lg leading-relaxed">
+              For Thanatos, death wasn't violent; it was an inevitable, peaceful transition. Our protocol mimics this silence. Prove you exist periodically via Semaphore ZK circuits. Once the proofs cease, your encrypted assets flow securely across the river Styx to your chosen heir. No intermediaries required.
             </p>
-          </motion.div>
+          </div>
+        </div>
+      </section>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Tech Stack Strip */}
+      <section className="border-t border-card-border">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-card-border border-b border-card-border">
+          {stack.map((item, i) => (
+            <div key={i} className="p-6 flex flex-col gap-1">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                BUILT WITH {i + 1}/{stack.length}
+              </span>
+              <span className="text-lg font-black tracking-tighter uppercase">{item.label}</span>
+              <span className="text-xs text-muted-foreground font-mono">{item.sub}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Grid Features */}
+      <section className="py-0 border-t border-card-border">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-card-border border-b border-card-border">
+          {features.map((feature, i) => (
+            <div key={i} className="p-8 pb-12 brutal-panel group">
+              <span className="text-[10px] font-mono text-muted-foreground mb-12 block">
+                --- FEATURE {i + 1}
+              </span>
+              <h3 className="text-xl font-bold mb-4 uppercase tracking-tight">{feature.title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <span className="text-xs font-mono uppercase text-muted-foreground block mb-12">
+            [02] The Sequence
+          </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-24">
             {steps.map((item, i) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: i * 0.15, duration: 0.6 }}
-                className="glass-panel p-8 rounded-3xl relative overflow-hidden group"
-              >
-                {/* Background glow on hover */}
-                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                <div className="text-6xl font-black mb-6 text-white/5 group-hover:text-primary/10 transition-colors duration-500 transform group-hover:scale-110 origin-left">
-                  {item.step}
+              <div key={i} className="border-t border-card-border pt-8 group">
+                <div className="flex justify-between items-start mb-6">
+                  <h3 className="text-3xl font-bold uppercase tracking-tighter group-hover:ml-4 transition-all duration-300">
+                    {item.title}
+                  </h3>
+                  <span className="text-sm font-mono text-muted-foreground">{item.step}</span>
                 </div>
-                <h3 className="font-bold text-xl mb-4 text-white relative z-10 flex items-center gap-2">
-                  {item.title}
-                  <ChevronRight className="w-4 h-4 text-primary opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
-                </h3>
-                <p className="text-sm font-medium leading-relaxed text-neutral-400 relative z-10 group-hover:text-neutral-300 transition-colors">
+                <p className="text-muted-foreground max-w-md text-lg leading-relaxed">
                   {item.description}
                 </p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-32 px-6 relative z-10 bg-neutral-950/50 border-y border-white/5">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            className="text-center mb-20 flex flex-col items-center"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
-              <Shield className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">
-              Why Thanatos?
-            </h2>
-            <p className="text-lg text-neutral-400 max-w-2xl mx-auto">
-              Privacy-preserving inheritance, built from first principles to ensure your assets remain yours, until they aren't.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-                whileHover={{ y: -5 }}
-                className="p-8 rounded-3xl bg-black/40 border border-white/5 hover:border-primary/30 transition-all duration-300 group"
-              >
-                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-primary/10 group-hover:border-primary/30 transition-all duration-300">
-                  <feature.icon className="w-6 h-6 text-neutral-300 group-hover:text-primary transition-colors" />
-                </div>
-                <h3 className="font-bold text-xl mb-3 text-white">
-                  {feature.title}
-                </h3>
-                <p className="text-sm font-medium leading-relaxed text-neutral-400 group-hover:text-neutral-300 transition-colors">
-                  {feature.description}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-40 px-6 relative z-10 text-center">
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/5 via-transparent to-transparent pointer-events-none" />
+      {/* Ticker Tape Bottom */}
+      <div className="w-full py-4 overflow-hidden border-y border-card-border flex relative mt-24">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="max-w-3xl mx-auto relative"
+          animate={{ x: [-1035, 0] }}
+          transition={{ ease: "linear", duration: 20, repeat: Infinity }}
+          className="flex whitespace-nowrap gap-16 text-xs text-muted-foreground font-mono uppercase items-center"
         >
-          <div className="absolute -inset-4 bg-primary/20 blur-3xl rounded-full opacity-50 -z-10" />
-          <h2 className="text-5xl md:text-7xl font-black mb-8 tracking-tighter">
-            Secure Your Legacy
-          </h2>
-          <p className="text-xl text-neutral-400 mb-12 max-w-xl mx-auto font-medium">
-            Join the future of trustless, private crypto inheritance. No custody. No compromise.
-          </p>
-          <Link href="/setup">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="group relative inline-flex items-center gap-3 px-12 py-5 rounded-full font-bold text-lg text-white bg-gradient-to-r from-primary to-rose-600 shadow-[0_0_50px_rgba(225,29,72,0.5)] overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-              <span className="relative z-10">Get Started — It&apos;s Free</span>
-              <ArrowRight className="w-6 h-6 relative z-10 group-hover:translate-x-1.5 transition-transform" />
-            </motion.button>
-          </Link>
+          {Array(10).fill(0).map((_, i) => (
+            <span key={i} className="flex items-center gap-16">
+              <span>CRYPTOGRAPHIC LEGACY MANAGEMENT</span>
+              <span>+++</span>
+              <span>THE PROTOCOL DEMANDS SILENCE</span>
+              <span>+++</span>
+            </span>
+          ))}
         </motion.div>
-      </section>
+      </div>
 
       {/* Footer */}
-      <footer className="py-12 px-6 relative z-10 border-t border-white/10 bg-black/60 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <Shield className="w-4 h-4 text-primary" />
+      <footer className="pt-24 pb-8 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-24">
+            <div className="md:col-span-2">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase block mb-4">
+                --- Fragments of Trust, Gently Returned.
+              </span>
+              <h2 className="text-4xl font-bold tracking-tight max-w-sm leading-tight">
+                Some legacies are meant to stay quiet.
+              </h2>
             </div>
-            <span className="font-bold text-lg tracking-tight">Thanatos Protocol</span>
+
+            <div>
+              <span className="text-[10px] font-mono text-muted-foreground uppercase block mb-4">
+                Network
+              </span>
+              <ul className="space-y-2 text-sm">
+                <li>Starknet Mainnet</li>
+                <li>Sepolia Testnet</li>
+              </ul>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-mono text-muted-foreground uppercase block mb-4">
+                Connect
+              </span>
+              <ul className="space-y-2 text-sm">
+                <li><a href="https://github.com/RomarioKavin1/Tanatos-Protocol" target="_blank" rel="noreferrer" className="hover:text-muted-foreground transition-colors">GitHub</a></li>
+                <li><a href="https://github.com/RomarioKavin1/Tanatos-Protocol/blob/main/README.md" target="_blank" rel="noreferrer" className="hover:text-muted-foreground transition-colors">Documentation</a></li>
+              </ul>
+            </div>
           </div>
 
-          <div className="text-center md:text-left text-sm font-medium text-neutral-500">
-            <p>Open source. Trustless. Forever.</p>
-            <p className="mt-1 opacity-70">
-              Smart contracts are unaudited. Use at your own risk on testnet first.
-            </p>
-          </div>
-
-          <div className="flex gap-4">
-            <a href="https://github.com/thanatos-protocol" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all">
-              <Github className="w-5 h-5" />
-            </a>
+          <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-card-border text-xs font-mono text-muted-foreground uppercase">
+            <p>&copy; 2026 Thanatos Protocol. All rights reserved.</p>
+            <div className="flex gap-4 mt-4 md:mt-0">
+              <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+              <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
+            </div>
           </div>
         </div>
       </footer>

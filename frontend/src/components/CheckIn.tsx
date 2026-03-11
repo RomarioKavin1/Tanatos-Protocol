@@ -356,8 +356,8 @@ export function CheckIn() {
         {/* Check-in button */}
         <button
           onClick={handleCheckin}
-          disabled={isProving || proofStep === "done"}
-          className="w-full py-4 rounded-none font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
+          disabled={isProving || proofStep === "done" || !account}
+          className="w-full py-4 rounded-none font-bold text-background flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
           style={{ background: "var(--primary)" }}
         >
           {isProving ? (
@@ -370,6 +370,8 @@ export function CheckIn() {
               <CheckCircle className="w-5 h-5" />
               Done
             </>
+          ) : !account ? (
+            "Connect Wallet First"
           ) : (
             <>
               <Zap className="w-5 h-5" />

@@ -2,123 +2,113 @@
 @source "../**/*.{ts,tsx}";
 
 /* In Tailwind v4, custom theme values must be declared in @theme */
-@theme {
-  --color-background: #050505;
-  --color-foreground: #fcfcfc;
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 
-  --color-card: rgba(15, 15, 15, 0.4);
-  --color-card-hover: rgba(22, 22, 22, 0.6);
-  --color-card-border: rgba(255, 255, 255, 0.08);
-  --color-card-border-hover: rgba(255, 255, 255, 0.15);
+  --color-background: #000000;
+  --color-foreground: #ffffff;
 
-  --color-primary: #e11d48;
-  --color-primary-hover: #be123c;
-  --color-primary-glow: rgba(225, 29, 72, 0.4);
+  --color-card: #0a0a0a;
+  --color-card-hover: #121212;
+  --color-card-border: #222222;
+  --color-card-border-hover: #444444;
 
-  --color-secondary: #6d28d9;
-  --color-secondary-hover: #5b21b6;
-  --color-secondary-glow: rgba(109, 40, 217, 0.4);
+  --color-primary: #ffffff;
+  --color-primary-hover: #dddddd;
+  --color-primary-glow: rgba(255, 255, 255, 0.1);
 
-  --color-muted: #1f1f1f;
-  --color-muted-foreground: #a1a1aa;
+  --color-secondary: #888888;
+  --color-secondary-hover: #aaaaaa;
+
+  --color-muted: #1a1a1a;
+  --color-muted-foreground: #666666;
+  --color-border: #333333;
+
+  --color-success: #22c55e;
+  --color-destructive: #ef4444;
+  --color-accent: #f59e0b;
 }
 
-:root {
-  /* Provide mapping for inline styles in layout.tsx */
-  --background: var(--color-background);
-  --foreground: var(--color-foreground);
-  --card: var(--color-card);
-  --card-border: var(--color-card-border);
-  --primary: var(--color-primary);
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* Glassmorphism Utilities */
-.glass-panel {
-  background: var(--color-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--color-card-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-}
-
-.glass-panel:hover {
-  background: var(--color-card-hover);
-  border-color: var(--color-card-border-hover);
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--color-background);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-muted);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Text glow utility */
-.text-glow {
-  text-shadow: 0 0 20px var(--color-primary-glow);
-}
-
-/* Background animated gradient */
-@keyframes pulse-glow {
-  0% {
-    opacity: 0.3;
-    transform: scale(1);
+@layer base {
+  :root {
+    /* Provide mapping for inline styles in layout.tsx */
+    --background: var(--color-background);
+    --foreground: var(--color-foreground);
+    --card: var(--color-card);
+    --card-border: var(--color-card-border);
+    --primary: var(--color-primary);
+    --secondary: var(--color-secondary);
+    --muted: var(--color-muted);
+    --muted-foreground: var(--color-muted-foreground);
+    --success: var(--color-success);
+    --destructive: var(--color-destructive);
+    --accent: var(--color-accent);
   }
 
-  50% {
-    opacity: 0.6;
-    transform: scale(1.05);
+  * {
+    box-sizing: border-box;
+    /* Removed padding/margin 0 reset as Tailwind handles this */
   }
 
-  100% {
-    opacity: 0.3;
-    transform: scale(1);
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 }
 
-.bg-ambient-glow {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, var(--color-primary-glow) 0%, transparent 60%);
-  filter: blur(80px);
-  z-index: -1;
-  animation: pulse-glow 8s infinite alternate ease-in-out;
-  pointer-events: none;
+@layer utilities {
+
+  /* Brutalist Panels */
+  .brutal-panel {
+    background: var(--color-background);
+    border: 1px solid var(--color-card-border);
+    transition: all 0.2s ease-in-out;
+  }
+
+  .brutal-panel:hover {
+    background: var(--color-card);
+    border-color: var(--color-foreground);
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-background);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-card-border);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-secondary);
+  }
+
+  /* Noise Overlay */
+  .bg-noise {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+  }
 }

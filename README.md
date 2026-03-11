@@ -2,7 +2,19 @@
 
 **ZK Dead Man's Switch for Private Crypto Inheritance on Starknet**
 
-Thanatos Protocol lets you set up a trustless, privacy-preserving crypto inheritance mechanism. Prove you are alive with zero-knowledge proofs. If you stop checking in, your vault automatically activates for your beneficiary — without ever revealing their identity on-chain.
+Thanatos Protocol is a trustless, privacy-preserving crypto inheritance mechanism built on three interlocking ZK primitives: a **Cairo-native Semaphore group** for anonymous liveness attestation, a **Noir circuit verified on-chain by Garaga**, and a **Poseidon-committed beneficiary** whose identity is sealed until the moment of claim.
+
+Prove you are alive periodically with zero-knowledge proofs. If you stop, your vault activates and your beneficiary claims — without any party ever being linked to a wallet address on-chain.
+
+## What's Novel
+
+| Primitive | Novelty |
+|-----------|---------|
+| **Semaphore on Starknet** | Cairo-native Semaphore group with BN254 Poseidon2 Merkle tree (depth 20). First production deployment of Semaphore-style anonymous signaling on Starknet. |
+| **Noir → Garaga → Starknet** | End-to-end pipeline: Noir circuit compiled with Barretenberg UltraHonk, calldata generated via `garaga.getZKHonkCallData()`, verified by a Garaga-generated Cairo verifier live on Sepolia. |
+| **ZK Proof of Life** | First application of ZK proofs for temporal liveness attestation. The *absence* of a proof becomes a cryptographic signal — without revealing who failed to check in. |
+| **Epoch-bound nullifiers** | `nullifier = Poseidon2(identity_nullifier, epoch)` — each time window gets a unique, unrepeatable commitment. Anti-replay is enforced by the circuit itself, not the contract. |
+| **Three-layer privacy** | (1) Owner wallet never on-chain — ZK group membership only. (2) Beneficiary identity sealed as `Poseidon(address, salt)` until claim. (3) No correlation between check-ins across epochs. |
 
 ---
 
