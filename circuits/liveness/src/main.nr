@@ -1,5 +1,3 @@
-use std::hash::poseidon2;
-
 // Thanatos Protocol - Liveness Proof Circuit
 //
 // Proves that the prover:
@@ -18,9 +16,25 @@ use std::hash::poseidon2;
 //   nullifier_hash - H(identity_nullifier, epoch) - prevents double check-in per epoch
 //   signal_hash    - H(epoch) - binds proof to a specific epoch
 //   epoch          - current epoch number (block_timestamp / interval)
+//
+// Hash construction:
+//   poseidon2_hash_2(a, b) = poseidon2_permutation([a, b, 0, 2], 4)[0]
+//   poseidon2_hash_1(a)    = poseidon2_permutation([a, 0, 0, 1], 4)[0]
+//
+//   This is the exact sponge construction used by std::hash::poseidon2 internally,
+//   rewritten using the public poseidon2_permutation builtin (Poseidon2 struct is
+//   pub(crate) in nargo >=1.0.0-beta.16 and cannot be used from user code).
 
-fn hash_pair(left: Field, right: Field) -> Field {
-    poseidon2::Poseidon2::hash([left, right], 2)
+use std::hash::poseidon2_permutation;
+
+// Hash two field elements using the BN254 Poseidon2 sponge (rate=3, iv=2)
+fn poseidon2_hash_2(a: Field, b: Field) -> Field {
+    poseidon2_permutation([a, b, 0, 2], 4)[0]
+}
+
+// Hash one field element using the BN254 Poseidon2 sponge (rate=3, iv=1)
+fn poseidon2_hash_1(a: Field) -> Field {
+    poseidon2_permutation([a, 0, 0, 1], 4)[0]
 }
 
 fn main(
@@ -36,7 +50,7 @@ fn main(
     epoch: pub Field,
 ) {
     // Step 1: Derive identity commitment from secret and nullifier
-    let identity_commitment = poseidon2::Poseidon2::hash([identity_secret, identity_nullifier], 2);
+    let identity_commitment = poseidon2_hash_2(identity_secret, identity_nullifier);
 
     // Step 2: Verify Merkle membership proof
     // Walk from leaf up to root, hashing with siblings at each level
@@ -50,18 +64,18 @@ fn main(
         } else {
             (sibling, current)
         };
-        current = hash_pair(left, right);
+        current = poseidon2_hash_2(left, right);
     }
     assert(current == root, "Merkle proof verification failed: computed root does not match");
 
     // Step 3: Derive epoch nullifier - binds this proof to one epoch, preventing replay
-    let computed_nullifier = poseidon2::Poseidon2::hash([identity_nullifier, epoch], 2);
+    let computed_nullifier = poseidon2_hash_2(identity_nullifier, epoch);
     assert(
         computed_nullifier == nullifier_hash,
         "Nullifier mismatch: invalid identity_nullifier or epoch"
     );
 
     // Step 4: Verify signal hash - proves commitment to the epoch signal
-    let computed_signal = poseidon2::Poseidon2::hash([epoch], 1);
+    let computed_signal = poseidon2_hash_1(epoch);
     assert(computed_signal == signal_hash, "Signal hash mismatch: invalid epoch signal");
 }
