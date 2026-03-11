@@ -119,22 +119,7 @@ export default function DashboardPage() {
 
   if (!identity) {
     return (
-      <div className="min-h-screen" style={{ background: "var(--background)" }}>
-        <nav
-          className="flex items-center justify-between px-6 py-4"
-          style={{
-            borderBottom: "1px solid var(--card-border)",
-            background: "rgba(10,10,15,0.8)",
-            backdropFilter: "blur(12px)",
-          }}
-        >
-          <Link href="/" className="flex items-center gap-2">
-            <Shield className="w-6 h-6" style={{ color: "var(--primary)" }} />
-            <span className="font-bold text-lg tracking-tight">Thanatos</span>
-          </Link>
-          <ConnectWallet />
-        </nav>
-
+      <div className="min-h-screen pt-24" style={{ background: "var(--background)" }}>
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
           <Shield className="w-16 h-16 mb-6" style={{ color: "var(--muted)" }} />
           <h2 className="text-2xl font-bold mb-4">No Vault Found</h2>
@@ -156,23 +141,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
-      {/* Nav */}
-      <nav
-        className="flex items-center justify-between px-6 py-4"
-        style={{
-          borderBottom: "1px solid var(--card-border)",
-          background: "rgba(10,10,15,0.8)",
-          backdropFilter: "blur(12px)",
-        }}
-      >
-        <Link href="/" className="flex items-center gap-2">
-          <Shield className="w-6 h-6" style={{ color: "var(--primary)" }} />
-          <span className="font-bold text-lg tracking-tight">Thanatos</span>
-        </Link>
-        <ConnectWallet />
-      </nav>
-
-      <main className="max-w-4xl mx-auto px-6 py-16">
+      <main className="max-w-4xl mx-auto px-6 pt-32 pb-16">
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
           <div>
